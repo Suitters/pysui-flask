@@ -1,0 +1,51 @@
+# pyproject.toml
+[tool.pytest.ini_options]
+testpaths = [
+    "pysui_flask/tests/unit",
+    "pysui_flask/tests/integration",
+]
+pythonpath = ["pysui_flask/"]
+
+[build-system]
+requires = ["setuptools>=61.0","wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pysui-flask"
+
+description = "pysui-flask pysui flask REST api"
+requires-python = ">=3.10"
+keywords = ["software development kit", "sui", "blockchain","utilities","pysui","flask","framework"]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Programming Language :: Python",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3 :: Only"
+]
+dependencies = [
+    "pysui>=0.33.0"
+]
+dynamic = ["version","readme"]
+
+
+[project.scripts]
+
+[tool.setuptools.packages.find]
+exclude = ["out*","temp*","test*","tools*","build*","doc*","env*","images*"]
+
+
+[tool.setuptools.dynamic]
+version = {attr = "pysui_flask.version.__version__"}
+readme = {file = ["README.rst"],content-type = "text/x-rst"}
+
+[project.urls]
+changelog = ""
+repository = ""
+issues = ""

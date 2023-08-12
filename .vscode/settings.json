@@ -1,0 +1,45 @@
+{
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": [
+    "--check",
+    "--line-length",
+    "79"
+  ],
+  "python.linting.pylintEnabled": true,
+  // "python.linting.mypyEnabled": true,
+  "python.linting.pylintArgs": [
+    "----extension-pkg-whitelist=1xml",
+    "--max-line-length",
+    "80",
+    "--disable",
+    "wrong-import-position",
+    "--disable",
+    "global-statement",
+    "--disable",
+    "import-outside-toplevel",
+    "--disable",
+    "subprocess-run-check",
+    // This is because of false positive in create_new_address of sui_crypto.py
+    "--disable",
+    "unpacking-non-sequence",
+    "--disable",
+    "unused-argument"
+  ],
+  "python.linting.pydocstyleEnabled": true,
+  "python.linting.pydocstyleArgs": [
+    "--ignore=D203,D213,D401,D403"
+  ],
+  "editor.formatOnSave": true,
+  "autoDocstring.docstringFormat": "sphinx",
+  "autoDocstring.generateDocstringOnEnter": true,
+  "autoDocstring.guessTypes": true,
+  "autoDocstring.includeName": false,
+  "python.testing.pytestArgs": [
+    "pysui_flask/tests"
+  ],
+  "[python]": {
+    "editor.defaultFormatter": null
+  }
+}
