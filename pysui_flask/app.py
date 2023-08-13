@@ -13,14 +13,18 @@
 
 """Application bootstrap."""
 
+import os
+from datetime import timedelta
 from flask import Flask
+from flask_session import Session
 from flasgger import Swagger
-from pysui_flask.api.route.home import home_api
+from pysui_flask.api.route.account import account_api
+from pysui_flask.api.route.admin import admin_api
 
 
 def create_app():
     """."""
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder="api/templates")
 
     app.config["SWAGGER"] = {
         "title": "pysui-flask REST Api",
@@ -28,7 +32,24 @@ def create_app():
     swagger = Swagger(app)
     ## Initialize Config
     app.config.from_pyfile("config.py")
-    app.register_blueprint(home_api)
+    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+    if os.getenv("USE_FLASK_SESSION") == "True":
+        app.config["SESSION_TYPE"] = os.getenv("SESSION_TYPE")
+        # if
+        app.config["SESSION_PERMANENT"] = (
+            True if os.getenv("SESSION_PERMANENT", None) else False
+        )
+        app.config["SESSION_FILE_THRESHOLD"] = int(
+            os.getenv("SESSION_FILE_THRESHOLD", "10")
+        )
+
+        app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(
+            hours=(int(os.getenv("PERMANENT_SESSION_LIFETIME", "1")))
+        )
+        Session(app)
+
+    app.register_blueprint(admin_api)
+    app.register_blueprint(account_api)
 
     return app
 

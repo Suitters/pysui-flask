@@ -19,4 +19,4 @@ class AccountModel:
 
     def __init__(self):
         """."""
-        self.message = "Hello World!"
+        self.message = "Need account information!"

@@ -19,10 +19,10 @@ from flasgger import swag_from
 from pysui_flask.api.model.account import AccountModel
 from pysui_flask.api.schema.account import AccountSchema
 
-home_api = Blueprint("api", __name__)
+account_api = Blueprint("account", __name__, url_prefix="/account")
 
 
-@home_api.route("/")
+@account_api.route("/")
 @swag_from(
     {
         "responses": {
@@ -33,7 +33,7 @@ home_api = Blueprint("api", __name__)
         }
     }
 )
-def welcome():
+def account():
     """1 liner about the route.
 
     A more detailed description of the endpoint

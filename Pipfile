@@ -10,6 +10,7 @@ flask-marshmallow = "*"
 apispec = "*"
 python-dotenv = "*"
 pysui = "*"
+flask-session = "*"
 
 [dev-packages]
 pytest = "*"
@@ -18,6 +19,7 @@ pylint = "*"
 black = "*"
 build = "*"
 twine = "*"
+pyopenssl = "*"
 
 [requires]
 python_version = "3.10"
