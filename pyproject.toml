@@ -30,7 +30,13 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only"
 ]
 dependencies = [
-    "pysui>=0.33.0"
+    "pysui>=0.33.0",
+    "Flask>=2.3.2",
+    "flasgger>=0.9.7.2.dev2",
+    "flask-marshmallow>=0.15.0",
+    "apispec>=6.3.0",
+    "python-dotenv>=1.0.0"
+
 ]
 dynamic = ["version","readme"]
 
@@ -46,6 +52,6 @@ version = {attr = "pysui_flask.version.__version__"}
 readme = {file = ["README.rst"],content-type = "text/x-rst"}
 
 [project.urls]
-changelog = ""
-repository = ""
-issues = ""
+# changelog = ""
+repository = "https://github.com/FrankC01/pysui-flask"
+# issues = ""

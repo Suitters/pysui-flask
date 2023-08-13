@@ -14,7 +14,7 @@
 """Models init."""
 
 
-class WelcomeModel:
+class AccountModel:
     """."""
 
     def __init__(self):

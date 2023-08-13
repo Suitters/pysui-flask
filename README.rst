@@ -1,15 +1,8 @@
-pysui-gadgets
-=============
+pysui-flask
+===========
 
-pysui-gadgets includes tools and utilities that work with the pysui SDK.
+pysui-flask exposes pysui SDK via RESTful API
 
-Gadgets included:
-
-* package - Performs operations that leverages meta-data about SUI move packages (smart-contracts)
-* dsl-gen - Creates python representation of move package key structs and entry point functions
-* to-one - Merges all SUI Gas mists 'to one' SUI Gas object for an address
-* splay - Evenly distribute coins from one address to many
-* vh - History of object versions
 
 Setup for use
 *************
@@ -65,8 +58,8 @@ Setup for cloning
     pip install ../path_to_pysui/
 
 
-Running gadgets
-***************
+Running
+*******
 
 .. code-block::
 

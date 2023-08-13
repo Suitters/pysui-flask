@@ -15,7 +15,7 @@
 
 from flask import Flask
 from flasgger import Swagger
-from api.route.home import home_api
+from pysui_flask.api.route.home import home_api
 
 
 def create_app():
@@ -23,12 +23,12 @@ def create_app():
     app = Flask(__name__)
 
     app.config["SWAGGER"] = {
-        "title": "Flask API Starter Kit",
+        "title": "pysui-flask REST Api",
     }
     swagger = Swagger(app)
     ## Initialize Config
     app.config.from_pyfile("config.py")
-    app.register_blueprint(home_api, url_prefix="/api")
+    app.register_blueprint(home_api)
 
     return app
 

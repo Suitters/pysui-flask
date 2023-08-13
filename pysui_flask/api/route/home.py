@@ -16,8 +16,8 @@
 from http import HTTPStatus
 from flask import Blueprint
 from flasgger import swag_from
-from api.model.welcome import WelcomeModel
-from api.schema.welcome import WelcomeSchema
+from pysui_flask.api.model.account import AccountModel
+from pysui_flask.api.schema.account import AccountSchema
 
 home_api = Blueprint("api", __name__)
 
@@ -27,8 +27,8 @@ home_api = Blueprint("api", __name__)
     {
         "responses": {
             HTTPStatus.OK.value: {
-                "description": "Welcome to the Flask Starter Kit",
-                "schema": WelcomeSchema,
+                "description": "Welcome to the pysui REST Api Server",
+                "schema": AccountSchema,
             }
         }
     }
@@ -39,5 +39,5 @@ def welcome():
     A more detailed description of the endpoint
     ---
     """
-    result = WelcomeModel()
-    return WelcomeSchema().dump(result), 200
+    result = AccountModel()
+    return AccountSchema().dump(result), 200

@@ -1,3 +1,15 @@
+# mac
 .DS_Store
+
+# environment
 .python-version
-.idea
+
+# build cruft
+build/
+dist/
+*.egg-info
+
+# cache
+.pytest_cache
+*.pyc
+__pycache__/
