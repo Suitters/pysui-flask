@@ -11,4 +11,23 @@
 
 # -*- coding: utf-8 -*-
 
-"""Test home API."""
+"""Pytest fixtures (setup/teardown) module."""
+
+import pytest
+
+from flask import Flask
+from flask.testing import FlaskClient
+from pysui_flask import app as pysui_app
+
+
+@pytest.fixture
+def client():
+    """."""
+    app = pysui_app.create_app()
+    app.config["TESTING"] = True
+
+    with app.app_context():
+        with app.test_client() as client:
+            yield client
+            print("exiting client")
+    print("exiting context")

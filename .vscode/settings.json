@@ -37,7 +37,7 @@
   "autoDocstring.guessTypes": true,
   "autoDocstring.includeName": false,
   "python.testing.pytestArgs": [
-    "pysui_flask/tests"
+    "tests"
   ],
   "[python]": {
     "editor.defaultFormatter": null

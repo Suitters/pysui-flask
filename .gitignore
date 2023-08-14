@@ -13,3 +13,6 @@ dist/
 .pytest_cache
 *.pyc
 __pycache__/
+
+# Flask
+flask_session/

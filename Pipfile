@@ -11,6 +11,7 @@ apispec = "*"
 python-dotenv = "*"
 pysui = "*"
 flask-session = "*"
+dataclasses-json = "*"
 
 [dev-packages]
 pytest = "*"

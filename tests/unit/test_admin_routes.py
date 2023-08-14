@@ -11,4 +11,17 @@
 
 # -*- coding: utf-8 -*-
 
-"""Route tests init."""
+"""Pytest admin routes."""
+import json
+
+from flask.testing import FlaskClient
+
+
+def test_login(client: FlaskClient):
+    """."""
+    creds = {
+        "username": "fastfrank",
+        "password": "AmTSExC46K9ZDms8GyQvIHYDb+X19Fpn6OxaRVigPBrz",
+    }
+    response = client.post("/login", json=json.dumps(creds))
+    assert response.status_code == 200

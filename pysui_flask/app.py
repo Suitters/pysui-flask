@@ -32,7 +32,9 @@ def create_app():
     swagger = Swagger(app)
     ## Initialize Config
     app.config.from_pyfile("config.py")
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+    if os.getenv("SECRET_KEY"):
+        app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+        app.config["SESSION_COOKIE_SECURE"] = True
     if os.getenv("USE_FLASK_SESSION") == "True":
         app.config["SESSION_TYPE"] = os.getenv("SESSION_TYPE")
         # if

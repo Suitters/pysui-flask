@@ -1,10 +1,10 @@
 # pyproject.toml
 [tool.pytest.ini_options]
 testpaths = [
-    "pysui_flask/tests/unit",
-    "pysui_flask/tests/integration",
+    "tests",
+    # "pysui_flask/test/route"
 ]
-pythonpath = ["pysui_flask/"]
+pythonpath = ["pysui_flask"]
 
 [build-system]
 requires = ["setuptools>=61.0","wheel"]
