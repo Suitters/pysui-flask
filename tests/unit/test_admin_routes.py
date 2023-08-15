@@ -17,11 +17,37 @@ import json
 from flask.testing import FlaskClient
 
 
-def test_login(client: FlaskClient):
+def test_admin_pre_login_root(client: FlaskClient):
+    """."""
+    response = client.get("/")
+    assert response.json["error"] == "Admin session not found"
+
+
+def test_admin_login(client: FlaskClient):
     """."""
     creds = {
         "username": "fastfrank",
         "password": "AmTSExC46K9ZDms8GyQvIHYDb+X19Fpn6OxaRVigPBrz",
     }
-    response = client.post("/login", json=json.dumps(creds))
+    response = client.get("/login", json=json.dumps(creds))
     assert response.status_code == 200
+    assert "session" in response.json
+
+
+def test_admin_post_login_root(client: FlaskClient):
+    """."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "session" in response.json
+
+
+def test_admin_create_account(client: FlaskClient):
+    """."""
+
+
+def test_admin_accounts(client: FlaskClient):
+    """."""
+    response = client.get("/accounts")
+    assert response.status_code == 200
+    as_json = response.json
+    print()

@@ -12,32 +12,52 @@
 # -*- coding: utf-8 -*-
 
 """Route module."""
-
+import json
 from http import HTTPStatus
-from flask import Blueprint
+from flask import Blueprint, session, request
 from flasgger import swag_from
-from pysui_flask.api.model.account import AccountModel
-from pysui_flask.api.schema.account import AccountSchema
 
 account_api = Blueprint("account", __name__, url_prefix="/account")
 
 
-@account_api.route("/")
+@account_api.get("/")
 @swag_from(
     {
         "responses": {
             HTTPStatus.OK.value: {
-                "description": "Welcome to the pysui REST Api Server",
-                "schema": AccountSchema,
+                "description": "Admin for pysui-flask",
             }
         }
     }
 )
 def account():
-    """1 liner about the route.
+    """Account root.
 
     A more detailed description of the endpoint
-    ---
     """
-    result = AccountModel()
-    return AccountSchema().dump(result), 200
+    if not session.get("account_logged_in"):
+        return {"error": "account session not found"}
+    else:
+        return {"session": session.sid}
+
+
+@account_api.get("/login")
+def account_login():
+    """Verify account login."""
+    in_data = None
+
+    if request.headers.get("Content-Type") == "application/json":
+        in_data = json.loads(request.get_json())
+    else:
+        pass  # Error
+    # if (
+    #     in_data["username"] == os.environ["ADMIN_NAME"]
+    #     and in_data["password"] == os.environ["ADMIN_KEY"]
+    # ):
+    #     session["name"] = in_data["username"]
+    #     session["admin_logged_in"] = True
+
+    #     session["client_cfg"] = AdminConfig.from_config(
+    #         SuiConfig.default_config()
+    #     ).to_json()
+    return {"session": session.sid}

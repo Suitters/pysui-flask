@@ -16,6 +16,8 @@
 from dataclasses import dataclass, field
 from dataclasses_json import DataClassJsonMixin
 
+from pysui import SuiConfig
+
 
 @dataclass
 class _BaseConfig(DataClassJsonMixin):
@@ -26,9 +28,9 @@ class _BaseConfig(DataClassJsonMixin):
     """
 
     rpc_url: str
-    default_address: str = field(default_factory=str)
+    active_address: str = field(default_factory=str)
     ws_url: str = field(default_factory=str)
-    key: str = field(default_factory=str)
+    active_key: str = field(default_factory=str)
 
 
 @dataclass
@@ -46,8 +48,25 @@ class AdminConfig(_BaseConfig):
     Derived from default_config on SuiConfig
     """
 
-    addresses: list[str] = field(default_factory=list)
+    additional_addresses: list[str] = field(default_factory=list)
     additional_keys: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_config(cls, config: SuiConfig) -> "AdminConfig":
+        """."""
+        active_address = config.active_address
+        cfg = cls(
+            config.rpc_url,
+            active_address.address,
+            config.socket_url,
+            config.keypair_for_address(active_address).serialize(),
+        )
+        addy_kp = config.addresses_and_keys
+        addy_kp.pop(active_address.address)
+        keys, values = zip(*addy_kp.items())
+        cfg.additional_addresses = list(keys)
+        cfg.additional_keys = [x.serialize() for x in values]
+        return cfg
 
 
 if __name__ == "__main__":

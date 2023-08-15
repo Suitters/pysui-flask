@@ -13,15 +13,25 @@
 
 """Pytest fixtures (setup/teardown) module."""
 
+from pathlib import Path
 import pytest
 
-from flask import Flask
 from flask.testing import FlaskClient
 from pysui_flask import app as pysui_app
 
 
-@pytest.fixture
-def client():
+def _session_cleanup():
+    """Deletes the session directory after all tests in module completed."""
+    cwd = Path.cwd().joinpath("flask_session")
+    if cwd.exists() and cwd.is_dir():
+        for pfile in cwd.glob("*"):
+            if pfile.is_file():
+                pfile.unlink()
+        cwd.rmdir()
+
+
+@pytest.fixture(scope="module")
+def client() -> FlaskClient:
     """."""
     app = pysui_app.create_app()
     app.config["TESTING"] = True
@@ -31,3 +41,4 @@ def client():
             yield client
             print("exiting client")
     print("exiting context")
+    _session_cleanup()
