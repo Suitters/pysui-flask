@@ -11,12 +11,64 @@
 
 # -*- coding: utf-8 -*-
 
-"""General App Configuration Params."""
+"""Flask config."""
 
-from os import environ, path
+import os
+from pathlib import Path
+from datetime import timedelta
 from dotenv import load_dotenv
 
-basedir = path.abspath(path.dirname(__file__))
-result = load_dotenv(path.join(basedir, ".env"), None, True)
-if not result:
-    print("Noting loaded.")
+# This gets the app dir and we want to go one back
+basedir = Path(os.path.abspath(os.path.dirname(__file__)))
+load_dotenv(basedir.joinpath(".env"))
+
+
+class Config:
+    """Base config defaults."""
+
+    SECRET_KEY = os.environ.get("SECRET_KEY")
+    ADMIN_NAME = os.environ.get("ADMIN_NAME")
+    ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+    SESSION_TYPE = os.environ.get("SESSION_TYPE")
+    SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
+
+
+class ProdConfig(Config):
+    """."""
+
+    FLASK_ENV = "production"
+    DEBUG = False
+    TESTING = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get("PROD_DATABASE")
+    SQLALCHEMY_ECHO = False
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_FILE_THRESHOLD = int(os.environ.get("PROD_SESSION_FILE_THRESHOLD"))
+    PERMANENT_SESSION_LIFETIME = timedelta(
+        hours=(int(os.environ.get("PROD_PERMANENT_SESSION_LIFETIME")))
+    )
+
+
+class DevConfig(Config):
+    """."""
+
+    FLASK_ENV = "development"
+    DEBUG = True
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DEV_DATABASE")
+    SQLALCHEMY_ECHO = True
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_FILE_THRESHOLD = int(os.environ.get("DEV_SESSION_FILE_THRESHOLD"))
+    PERMANENT_SESSION_LIFETIME = timedelta(
+        hours=(int(os.environ.get("DEV_PERMANENT_SESSION_LIFETIME")))
+    )
+
+
+def load_config() -> Config:
+    """."""
+    cfg = os.environ.get("USE_CONFIG")
+    if cfg == "Dev":
+        return DevConfig()
+    elif cfg == "Prod":
+        return ProdConfig()
+    else:
+        raise ValueError(f"{cfg} not a known config. Use 'Dev' or 'Prod'")

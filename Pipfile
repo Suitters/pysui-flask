@@ -12,6 +12,7 @@ python-dotenv = "*"
 pysui = "*"
 flask-session = "*"
 dataclasses-json = "*"
+flask-sqlalchemy = "*"
 
 [dev-packages]
 pytest = "*"

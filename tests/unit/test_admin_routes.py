@@ -27,7 +27,7 @@ def test_admin_login(client: FlaskClient):
     """."""
     creds = {
         "username": "fastfrank",
-        "password": "AmTSExC46K9ZDms8GyQvIHYDb+X19Fpn6OxaRVigPBrz",
+        "password": "489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
     }
     response = client.get("/login", json=json.dumps(creds))
     assert response.status_code == 200

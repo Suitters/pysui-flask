@@ -14,58 +14,67 @@
 """Application bootstrap."""
 
 import os
-from datetime import timedelta
+from datetime import datetime
 from flask import Flask
 from flask_session import Session
 from flasgger import Swagger
+from . import db
+import pysui_flask.config as config
+
+from pysui_flask.db_tables import *
+
+
 from pysui_flask.api.route.account import account_api
 from pysui_flask.api.route.admin import admin_api
+from pysui.sui.sui_crypto import create_new_keypair
+
+
+def _pre_populate(app):
+    """Checks for at least the admin constructs."""
+    result: User = User.query.filter_by(
+        password=app.config["ADMIN_PASSWORD"]
+    ).first()
+    if not result:
+        _, kp = create_new_keypair()
+        user = User()
+        user.user_key = kp.serialize()
+        user.password = app.config["ADMIN_PASSWORD"]
+        user.email = app.config["ADMIN_NAME"]
+        user.user_role = UserRole.admin
+        user.applicationdate = datetime.now()
+        db.session.add(user)
+        db.session.commit()
+    elif result.user_role != UserRole.admin:
+        raise SystemError("You've been hacked!")
 
 
 def create_app():
-    """."""
-    app = Flask(__name__, template_folder="api/templates")
+    """Flask app entry point."""
+    app = Flask(__name__)
 
+    # Swagger
     app.config["SWAGGER"] = {
         "title": "pysui-flask REST Api",
     }
     swagger = Swagger(app)
-    ## Initialize Config
-    app.config.from_pyfile("config.py")
-    if os.getenv("SECRET_KEY"):
-        app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-        app.config["SESSION_COOKIE_SECURE"] = True
-    if os.getenv("USE_FLASK_SESSION") == "True":
-        app.config["SESSION_TYPE"] = os.getenv("SESSION_TYPE")
-        # if
-        app.config["SESSION_PERMANENT"] = (
-            True if os.getenv("SESSION_PERMANENT", None) else False
-        )
-        app.config["SESSION_FILE_THRESHOLD"] = int(
-            os.getenv("SESSION_FILE_THRESHOLD", "10")
-        )
 
-        app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(
-            hours=(int(os.getenv("PERMANENT_SESSION_LIFETIME", "1")))
-        )
-        Session(app)
+    # Configuration environmental variables
+    app.config.from_object(config.load_config())
 
+    # Session
+    Session(app)
+    # Db load
+    db.init_app(app)
+    with app.app_context() as actx:
+        db.create_all()
+        _pre_populate(app)
+    # Blueprint routes
     app.register_blueprint(admin_api)
     app.register_blueprint(account_api)
-
     return app
 
 
 if __name__ == "__main__":
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
-    parser.add_argument(
-        "-p", "--port", default=5000, type=int, help="port to listen on"
-    )
-    args = parser.parse_args()
-    port = args.port
-
     app = create_app()
 
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)

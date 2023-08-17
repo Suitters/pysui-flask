@@ -60,7 +60,7 @@ def admin_login():
         pass  # Error
     if (
         in_data["username"] == os.environ["ADMIN_NAME"]
-        and in_data["password"] == os.environ["ADMIN_KEY"]
+        and in_data["password"] == os.environ["ADMIN_PASSWORD"]
     ):
         session["name"] = in_data["username"]
         session["admin_logged_in"] = True
