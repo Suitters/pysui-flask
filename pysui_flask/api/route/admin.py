@@ -13,7 +13,6 @@
 
 """Administration module."""
 
-import os
 import json
 from http import HTTPStatus
 from flask import (
@@ -22,8 +21,8 @@ from flask import (
     request,
 )
 from flasgger import swag_from
-from pysui_flask.api.model.sesclient import AdminConfig
-from pysui import SuiConfig
+from . import UserRole, verify_credentials
+
 
 admin_api = Blueprint("admin", __name__)
 
@@ -51,32 +50,18 @@ def admin():
 
 @admin_api.get("/login")
 def admin_login():
-    """Verify admin login."""
-    in_data = None
-
-    if request.headers.get("Content-Type") == "application/json":
-        in_data = json.loads(request.get_json())
-    else:
-        pass  # Error
-    if (
-        in_data["username"] == os.environ["ADMIN_NAME"]
-        and in_data["password"] == os.environ["ADMIN_PASSWORD"]
-    ):
-        session["name"] = in_data["username"]
-        session["admin_logged_in"] = True
-
-        session["client_cfg"] = AdminConfig.from_config(
-            SuiConfig.default_config()
-        ).to_json()
+    """Admin login with credential check."""
+    in_data = json.loads(request.get_json())
+    # Get the User object of the admin role
+    # Throws exception
+    user = verify_credentials(
+        user_name=in_data["username"],
+        user_password=in_data["password"],
+        expected_role=UserRole.admin,
+    )
+    session["name"] = in_data["username"]
+    session["admin_logged_in"] = True
     return {"session": session.sid}
 
 
-@admin_api.get("/accounts")
-def admin_accounts():
-    """Verify admin login."""
-    if not session.get("admin_logged_in"):
-        return {"error": "Admin session not found"}
-    adm_cfg = AdminConfig.from_json(session["client_cfg"])
-    all_addys: list[str] = [adm_cfg.active_address]
-    all_addys.extend(adm_cfg.additional_addresses)
-    return {"addresses": all_addys}
+# Add user

@@ -35,7 +35,7 @@ class User(db.Model):
     # One way hashed value from password text
     password = db.Column(db.String(64), nullable=False)
     # user email or string, must be unique clear
-    email = db.Column(db.String(254), nullable=False)
+    user_name_or_email = db.Column(db.String(254), nullable=False)
     # Encode a role
     user_role = db.Column(db.Enum(UserRole), nullable=False)
     # When registered

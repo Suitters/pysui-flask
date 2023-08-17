@@ -18,6 +18,21 @@ from dataclasses_json import DataClassJsonMixin
 
 from pysui import SuiConfig
 
+_SUI_STANDARD_URI: dict[str, dict[str, str]] = {
+    "devnet": {
+        "rpc_url": "https://fullnode.devnet.sui.io:443",
+        "ws_url": "wss://fullnode.devnet.sui.io:443",
+    },
+    "testnet": {
+        "rpc_url": "https://fullnode.testnet.sui.io:443",
+        "ws_url": "wss://fullnode.testnet.sui.io:443",
+    },
+    "mainnet": {
+        "rpc_url": "https://fullnode.mainnet.sui.io:443",
+        "ws_url": "wss://fullnode.mainnet.sui.io:443",
+    },
+}
+
 
 @dataclass
 class _BaseConfig(DataClassJsonMixin):
@@ -39,34 +54,6 @@ class UserConfig(_BaseConfig):
 
     May be updated if settings change
     """
-
-
-@dataclass
-class AdminConfig(_BaseConfig):
-    """Admin configuration dataclass.
-
-    Derived from default_config on SuiConfig
-    """
-
-    additional_addresses: list[str] = field(default_factory=list)
-    additional_keys: list[str] = field(default_factory=list)
-
-    @classmethod
-    def from_config(cls, config: SuiConfig) -> "AdminConfig":
-        """."""
-        active_address = config.active_address
-        cfg = cls(
-            config.rpc_url,
-            active_address.address,
-            config.socket_url,
-            config.keypair_for_address(active_address).serialize(),
-        )
-        addy_kp = config.addresses_and_keys
-        addy_kp.pop(active_address.address)
-        keys, values = zip(*addy_kp.items())
-        cfg.additional_addresses = list(keys)
-        cfg.additional_keys = [x.serialize() for x in values]
-        return cfg
 
 
 if __name__ == "__main__":

@@ -13,11 +13,13 @@
 
 """Application bootstrap."""
 
-import os
+import json
 from datetime import datetime
-from flask import Flask
+from flask import Flask, jsonify, request
 from flask_session import Session
 from flasgger import Swagger
+
+from pysui_flask.api_error import APIError, ContentTypeError
 from . import db
 import pysui_flask.config as config
 
@@ -39,7 +41,7 @@ def _pre_populate(app):
         user = User()
         user.user_key = kp.serialize()
         user.password = app.config["ADMIN_PASSWORD"]
-        user.email = app.config["ADMIN_NAME"]
+        user.user_name_or_email = app.config["ADMIN_NAME"]
         user.user_role = UserRole.admin
         user.applicationdate = datetime.now()
         db.session.add(user)
@@ -48,10 +50,33 @@ def _pre_populate(app):
         raise SystemError("You've been hacked!")
 
 
+app = Flask(__name__)
+
+
+@app.errorhandler(APIError)
+def invalid_api_usage(e):
+    """Handle API raised exceptions."""
+    return jsonify(e.to_dict())
+
+
+@app.before_request
+def pre_check():
+    """Check information."""
+    if not (request.headers.get("Content-Type") == "application/json"):
+        raise ContentTypeError()
+    return None
+
+
+@app.after_request
+def post_check(response):
+    """Request message."""
+    if not response.get_json().get("error", None):
+        response.data = json.dumps({"result": response.get_json()})
+    return response
+
+
 def create_app():
     """Flask app entry point."""
-    app = Flask(__name__)
-
     # Swagger
     app.config["SWAGGER"] = {
         "title": "pysui-flask REST Api",

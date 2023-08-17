@@ -23,31 +23,69 @@ def test_admin_pre_login_root(client: FlaskClient):
     assert response.json["error"] == "Admin session not found"
 
 
+def test_bad_content(client: FlaskClient):
+    """."""
+    creds = {
+        "username": "fastfrank",
+        "password": "Slippery Slope",
+    }
+    response = client.get("/login", data=json.dumps(creds))
+    assert response.status_code == 200
+    assert "error" in response.json
+    assert response.json["error_code"] == -5
+
+
+def test_bad_admin_login(client: FlaskClient):
+    """."""
+    creds = {
+        "username": "fastfrank",
+        "password": "Slippery Slope",
+    }
+    response = client.get("/login", json=json.dumps(creds))
+    assert response.status_code == 200
+    assert "error" in response.json
+    assert response.json["error_code"] == -10
+
+
+def test_bad_credential_length(client: FlaskClient):
+    """."""
+    creds = {
+        "username": "fastfra",
+        "password": "Slippery Slope",
+    }
+    response = client.get("/login", json=json.dumps(creds))
+    assert response.status_code == 200
+    assert "error" in response.json
+    assert response.json["error_code"] == -10
+
+
 def test_admin_login(client: FlaskClient):
     """."""
     creds = {
         "username": "fastfrank",
-        "password": "489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
+        "password": "Oxnard Gimble",
     }
     response = client.get("/login", json=json.dumps(creds))
     assert response.status_code == 200
-    assert "session" in response.json
+    result = response.json
+    assert "result" in result and "session" in result["result"]
 
 
 def test_admin_post_login_root(client: FlaskClient):
     """."""
     response = client.get("/")
     assert response.status_code == 200
-    assert "session" in response.json
+    result = response.json
+    assert "result" in result and "session" in result["result"]
 
 
 def test_admin_create_account(client: FlaskClient):
     """."""
 
 
-def test_admin_accounts(client: FlaskClient):
-    """."""
-    response = client.get("/accounts")
-    assert response.status_code == 200
-    as_json = response.json
-    print()
+# def test_admin_accounts(client: FlaskClient):
+#     """."""
+#     response = client.get("/accounts")
+#     assert response.status_code == 200
+#     as_json = response.json
+#     print()
