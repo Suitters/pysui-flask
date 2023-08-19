@@ -17,3 +17,7 @@ __pycache__/
 # Flask
 flask_session/
 instance/
+
+# Misc
+scratch_*
+sui.log.*

@@ -16,12 +16,12 @@
 import hashlib
 from typing import Union
 from pysui_flask.db_tables import User, UserRole, UserConfiguration, ConfigKeys
-from pysui_flask.api_error import CredentialError
+from pysui_flask.api_error import APIError, CREDENTIAL_ERROR
 
 
 def verify_credentials(
     *, user_name: str, user_password: str, expected_role: UserRole
-) -> Union[User, CredentialError]:
+) -> Union[User, APIError]:
     """_summary_ Verifies credentials match database for user.
 
     :param user_name: Submitted name
@@ -37,7 +37,7 @@ def verify_credentials(
     """
     # TODO: Generalize constraint length vs hardcoded
     if (not (7 < len(user_name) < 255)) or (not (7 < len(user_password) < 15)):
-        raise CredentialError("Credential length error")
+        raise APIError("Credential length error", CREDENTIAL_ERROR)
 
     result: User = User.query.filter_by(user_name_or_email=user_name).first()
     # Verify credentials
@@ -49,4 +49,6 @@ def verify_credentials(
             ).hexdigest()
             if pwd_hashed == result.password:
                 return result
-    raise CredentialError(f"Unable to verify credentials for {user_name}")
+    raise APIError(
+        f"Unable to verify credentials for {user_name}", CREDENTIAL_ERROR
+    )

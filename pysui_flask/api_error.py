@@ -14,6 +14,12 @@
 
 """Base Exception."""
 
+# Error codes
+LOGIN_REQUIRED: int = -1
+CONTENT_TYPE_ERROR: int = -5
+CREDENTIAL_ERROR: int = -10
+REQUEST_CONTENT_ERROR: int = -20
+
 
 class APIError(Exception):
     """Base API Error."""

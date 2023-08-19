@@ -11,19 +11,131 @@
 
 # -*- coding: utf-8 -*-
 
-"""Welcome module."""
-
-from flask_marshmallow import Schema
-from marshmallow.fields import Str
+"""Account schema module."""
 
 
-class AccountSchema(Schema):
+import base64
+import binascii
+from marshmallow import Schema, fields, validate, pre_load, exceptions
+from pysui.abstracts.client_keypair import SignatureScheme
+from pysui.sui.sui_constants import SUI_HEX_ADDRESS_STRING_LEN
+
+
+SUI_STANDARD_URI: dict[str, dict[str, str]] = {
+    "devnet": {
+        "rpc_url": "https://fullnode.devnet.sui.io:443",
+        "ws_url": "wss://fullnode.devnet.sui.io:443",
+    },
+    "testnet": {
+        "rpc_url": "https://fullnode.testnet.sui.io:443",
+        "ws_url": "wss://fullnode.testnet.sui.io:443",
+    },
+    "mainnet": {
+        "rpc_url": "https://fullnode.mainnet.sui.io:443",
+        "ws_url": "wss://fullnode.mainnet.sui.io:443",
+    },
+}
+
+
+class UserIn(Schema):
     """."""
 
-    class Meta:
+    username = fields.Str(
+        required=True, validate=validate.Length(min=4, max=254)
+    )
+    password = fields.Str(
+        required=True, validate=validate.Length(min=8, max=16)
+    )
+
+
+class ExplicitUri(Schema):
+    """."""
+
+    rpc_url = fields.Url(required=True)
+    # ws_url = fields.Url(required=False)
+    ws_url = fields.Str(
+        required=False,
+        # validate=validate.URL(schemes=["ws", "wss"]),
+    )
+
+
+def _key_for_wallet_key(*, wallet_key: str, key_scheme: str) -> str:
+    """Validate and convert wallet key to Sui keystring."""
+    if len(wallet_key) != SUI_HEX_ADDRESS_STRING_LEN:
+        exceptions.ValidationError(
+            f"wallet_key {len(wallet_key)} wrong, expected {SUI_HEX_ADDRESS_STRING_LEN}"
+        )
+    if wallet_key[0:2] != "0x" or wallet_key[0:2] != "0X":
+        exceptions.ValidationError(
+            "Expected wallet_key to have 0x or 0X prefix"
+        )
+    scheme = SignatureScheme[key_scheme]
+    if scheme.value > 2:
+        exceptions.ValidationError(
+            f"key_scheme {key_scheme} not valid keytype for account"
+        )
+    keybytes = bytearray(scheme.value.to_bytes(1, "little"))
+    keybytes.extend(binascii.unhexlify(wallet_key[2:]))
+    return base64.b64encode(keybytes).decode()
+
+
+class Config(Schema):
+    """."""
+
+    private_key = fields.Str(required=True, validate=validate.Length(equal=44))
+    urls = fields.Nested(ExplicitUri, many=False, required=True)
+
+    @pre_load
+    def fix_inbounds(self, in_bound, **kwargs):
         """."""
+        if isinstance(in_bound, dict) and in_bound:
+            if "environment" in in_bound and "urls" in in_bound:
+                raise exceptions.ValidationError(
+                    f"Specifying environment and urls is mutually exclusive"
+                )
+            if "environment" in in_bound:
+                in_bound["urls"] = SUI_STANDARD_URI.get(
+                    in_bound.pop("environment")
+                )
+            if isinstance(in_bound["private_key"], dict):
+                base_keys = frozenset({"wallet_key", "key_scheme"})
+                if not in_bound["private_key"].keys() >= base_keys:
+                    raise exceptions.ValidationError(
+                        f"Wallet key requires 'wallet_key' and 'key_scheme'"
+                    )
+                in_bound["private_key"] = _key_for_wallet_key(
+                    **in_bound["private_key"]
+                )
+        else:
+            raise exceptions.ValidationError(
+                f"Config expects a map with data found {in_bound}"
+            )
 
-        # Fields to expose
-        fields = ["message"]
+        return in_bound
 
-    message = Str()
+
+class AccountSetup(Schema):
+    """."""
+
+    user = fields.Nested(UserIn, many=False, required=True)
+    config = fields.Nested(Config, many=False, required=True)
+
+
+if __name__ == "__main__":
+    input = {
+        "user": {"username": "FrankC01", "password": "Oxnard Gimble"},
+        "config": {
+            # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
+            "private_key": {
+                "key_scheme": "ED25519",
+                "wallet_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+            },
+            # "environment": "devnet",
+            "urls": {
+                "rpc_url": "https://fullnode.devnet.sui.io:443",
+                "ws_url": "https://fullnode.devnet.sui.io:443",
+            },
+        },
+    }
+    user_info = AccountSetup().load(input)
+    print(user_info)

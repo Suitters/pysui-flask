@@ -14,6 +14,7 @@
 """Administration module."""
 
 import json
+import functools
 from http import HTTPStatus
 from flask import (
     Blueprint,
@@ -21,10 +22,28 @@ from flask import (
     request,
 )
 from flasgger import swag_from
+import marshmallow
+from pysui_flask.api.schema.account import AccountSetup
+
+
+from pysui_flask.api_error import (
+    LOGIN_REQUIRED,
+    REQUEST_CONTENT_ERROR,
+    APIError,
+)
 from . import UserRole, verify_credentials
 
 
 admin_api = Blueprint("admin", __name__)
+
+
+def _admin_login_required():
+    if not session.get("admin_logged_in"):
+        raise APIError("Admin must login first", LOGIN_REQUIRED)
+
+
+def _content_expected(fields):
+    raise APIError(f"Expected {fields} in request", REQUEST_CONTENT_ERROR)
 
 
 @admin_api.get("/")
@@ -42,26 +61,39 @@ def admin():
 
     A more detailed description of the endpoint
     """
-    if not session.get("admin_logged_in"):
-        return {"error": "Admin session not found"}
-    else:
-        return {"session": session.sid}
+    _admin_login_required()
+    return {"session": session.sid}
 
 
 @admin_api.get("/login")
 def admin_login():
     """Admin login with credential check."""
-    in_data = json.loads(request.get_json())
-    # Get the User object of the admin role
-    # Throws exception
-    user = verify_credentials(
-        user_name=in_data["username"],
-        user_password=in_data["password"],
-        expected_role=UserRole.admin,
-    )
-    session["name"] = in_data["username"]
-    session["admin_logged_in"] = True
+    if not session.get("admin_logged_in"):
+        in_data = json.loads(request.get_json())
+        # Get the User object of the admin role
+        # Throws exception
+        user = verify_credentials(
+            user_name=in_data["username"],
+            user_password=in_data["password"],
+            expected_role=UserRole.admin,
+        )
+        session["name"] = in_data["username"]
+        session["admin_logged_in"] = True
     return {"session": session.sid}
 
 
-# Add user
+# Add user account - required admin logged in
+
+
+@admin_api.post("/user_account")
+def new_user_account():
+    """Admin registration of new user account."""
+    _admin_login_required()
+    try:
+        AccountSetup().load(json.loads(request.get_json()))
+    except marshmallow.ValidationError as ve:
+        _content_expected(ve.messages)
+    # except UnsupportedMediaType as um:
+    #     pass
+
+    return {"User": "not added"}
