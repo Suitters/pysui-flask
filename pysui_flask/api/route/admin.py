@@ -215,7 +215,7 @@ def new_user_accounts():
 
 @admin_api.get("/user_account/key")
 def query_user_account():
-    """Get a user account by account key"""
+    """Get a user account by account key."""
     _admin_login_required()
     q_account = json.loads(request.get_json())
 
