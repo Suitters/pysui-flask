@@ -13,14 +13,24 @@
 
 """Route package init."""
 
+import base64
 import hashlib
 from typing import Union
-from pysui_flask.db_tables import User, UserRole, UserConfiguration, ConfigKeys
-from pysui_flask.api_error import APIError, CREDENTIAL_ERROR
+from pysui_flask.db_tables import User, UserRole
+from pysui_flask.api_error import APIError, ErrorCodes
+
+
+def str_to_hash_hex(indata: str) -> str:
+    """."""
+    encoded_pwd = str.encode(indata)
+    return hashlib.blake2b(encoded_pwd, digest_size=32).hexdigest()
 
 
 def verify_credentials(
-    *, user_name: str, user_password: str, expected_role: UserRole
+    *,
+    username: str,
+    user_password: str,
+    expected_role: UserRole = UserRole.user,
 ) -> Union[User, APIError]:
     """_summary_ Verifies credentials match database for user.
 
@@ -35,20 +45,15 @@ def verify_credentials(
     :return: The User row from DB
     :rtype: User
     """
-    # TODO: Generalize constraint length vs hardcoded
-    if (not (7 < len(user_name) < 255)) or (not (7 < len(user_password) < 15)):
-        raise APIError("Credential length error", CREDENTIAL_ERROR)
-
-    result: User = User.query.filter_by(user_name_or_email=user_name).first()
+    # Find user
+    result: User = User.query.filter_by(user_name_or_email=username).first()
     # Verify credentials
     if result:
         if result.user_role == expected_role:
-            encoded_pwd = str.encode(user_password)
-            pwd_hashed = hashlib.blake2b(
-                encoded_pwd, digest_size=32
-            ).hexdigest()
+            pwd_hashed = str_to_hash_hex(user_password)
             if pwd_hashed == result.password:
                 return result
     raise APIError(
-        f"Unable to verify credentials for {user_name}", CREDENTIAL_ERROR
+        f"Unable to verify credentials for {username}",
+        ErrorCodes.CREDENTIAL_ERROR,
     )

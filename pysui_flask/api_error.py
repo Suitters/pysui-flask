@@ -14,11 +14,19 @@
 
 """Base Exception."""
 
+from enum import IntEnum
+
+
 # Error codes
-LOGIN_REQUIRED: int = -1
-CONTENT_TYPE_ERROR: int = -5
-CREDENTIAL_ERROR: int = -10
-REQUEST_CONTENT_ERROR: int = -20
+class ErrorCodes(IntEnum):
+    """Api Error Codes."""
+
+    UNKNOWN_ERROR: int = 0
+    LOGIN_REQUIRED: int = -1
+    CONTENT_TYPE_ERROR: int = -5
+    CREDENTIAL_ERROR: int = -10
+    REQUEST_CONTENT_ERROR: int = -20
+    USER_ALREADY_EXISTS: int = -30
 
 
 class APIError(Exception):
@@ -30,7 +38,7 @@ class APIError(Exception):
         """Create the exception."""
         super().__init__()
         self.message = message
-        self.error_code = error_code or -1
+        self.error_code = error_code or ErrorCodes.UNKNOWN_ERROR
         self.status_code = self._status_code
         self.payload = payload
 
@@ -40,25 +48,3 @@ class APIError(Exception):
         rv["error"] = self.message
         rv["error_code"] = self.error_code
         return rv
-
-
-class ContentTypeError(APIError):
-    """For ContentType failures."""
-
-    _error_code = -5
-
-    def __init__(self):
-        """Create the exception."""
-        super().__init__(
-            "Requires application/json as ContentType", self._error_code
-        )
-
-
-class CredentialError(APIError):
-    """For credential failures."""
-
-    _error_code = -10
-
-    def __init__(self, message, error_code=None, payload=None):
-        """Create the exception."""
-        super().__init__(message, error_code or self._error_code, payload)

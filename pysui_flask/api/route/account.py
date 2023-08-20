@@ -17,14 +17,14 @@ from http import HTTPStatus
 from flask import Blueprint, session, request
 from flasgger import swag_from
 
-from pysui_flask.api_error import LOGIN_REQUIRED, APIError
+from pysui_flask.api_error import ErrorCodes, APIError
 
 account_api = Blueprint("account", __name__, url_prefix="/account")
 
 
 def _user_login_required():
     if not session.get("admin_logged_in"):
-        raise APIError("Admin must login first", LOGIN_REQUIRED)
+        raise APIError("Admin must login first", ErrorCodes.LOGIN_REQUIRED)
 
 
 @account_api.get("/")

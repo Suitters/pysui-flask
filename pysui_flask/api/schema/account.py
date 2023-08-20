@@ -16,6 +16,9 @@
 
 import base64
 import binascii
+from dataclasses import dataclass, field
+from typing import Optional
+from dataclasses_json import dataclass_json, config
 from marshmallow import Schema, fields, validate, pre_load, exceptions
 from pysui.abstracts.client_keypair import SignatureScheme
 from pysui.sui.sui_constants import SUI_HEX_ADDRESS_STRING_LEN
@@ -121,6 +124,73 @@ class AccountSetup(Schema):
     config = fields.Nested(Config, many=False, required=True)
 
 
+# For performance
+_setup_schema = AccountSetup(many=False)
+# _setup_schemas = AccountSetup(many=True)
+
+
+@dataclass_json
+@dataclass
+class InUser:
+    """."""
+
+    username: str
+    password: str
+
+
+@dataclass_json
+@dataclass
+class InUri:
+    """."""
+
+    rpc_url: str
+    ws_url: Optional[str] = None
+
+
+@dataclass_json
+@dataclass
+class InConfig:
+    """."""
+
+    private_key: str
+    urls: InUri
+
+
+@dataclass_json
+@dataclass
+class InAccountSetup:
+    """."""
+
+    user: InUser
+    config: InConfig
+
+
+# For performance, build the schema for re-use
+_in_account_setup = InAccountSetup.schema()
+
+
+def deserialize_account_setup(in_data: dict) -> InAccountSetup:
+    """_summary_ Deserialize inbound account data during user setup.
+
+    :param in_data: A dictionary of required and optional keywords
+    :type in_data: dict
+    :return: dataclass for result data
+    :rtype: InAccountSetup
+    """
+    return _in_account_setup.load(_setup_schema.load(in_data))
+
+
+# def deserialize_account_setups(in_data: list[dict]) -> InAccountSetup:
+#     """_summary_ Deserialize inbound account data during user setup.
+
+#     :param in_data: A dictionary of required and optional keywords
+#     :type in_data: dict
+#     :return: dataclass for result data
+#     :rtype: InAccountSetup
+#     """
+#     return _in_account_setup.load(_setup_schemas.load(in_data))
+
+
 if __name__ == "__main__":
     input = {
         "user": {"username": "FrankC01", "password": "Oxnard Gimble"},
@@ -139,3 +209,6 @@ if __name__ == "__main__":
     }
     user_info = AccountSetup().load(input)
     print(user_info)
+    dcuser = InAccountSetup.from_dict(user_info)
+    dcuser = _in_account_setup.load(AccountSetup().load(input))
+    print(dcuser)

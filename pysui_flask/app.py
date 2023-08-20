@@ -19,7 +19,7 @@ from flask import Flask, jsonify, request
 from flask_session import Session
 from flasgger import Swagger
 
-from pysui_flask.api_error import CONTENT_TYPE_ERROR, APIError
+from pysui_flask.api_error import ErrorCodes, APIError
 from . import db
 import pysui_flask.config as config
 
@@ -39,7 +39,7 @@ def _pre_populate(app):
     if not result:
         _, kp = create_new_keypair()
         user = User()
-        user.user_key = kp.serialize()
+        user.account_key = kp.serialize()
         user.password = app.config["ADMIN_PASSWORD"]
         user.user_name_or_email = app.config["ADMIN_NAME"]
         user.user_role = UserRole.admin
@@ -67,7 +67,8 @@ def pre_check():
         #     request.headers.get("Content-Type") == "application/json"
         # ):
         raise APIError(
-            "Expect Content-Type=application/json", CONTENT_TYPE_ERROR
+            "Expect Content-Type=application/json",
+            ErrorCodes.CONTENT_TYPE_ERROR,
         )
 
     return None

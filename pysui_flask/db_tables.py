@@ -29,9 +29,14 @@ class UserRole(enum.Enum):
 class User(db.Model):
     """User table contains indicative data and keys."""
 
-    id = db.Column("user_id", db.Integer, nullable=False, primary_key=True)
+    id = db.Column(
+        "user_id",
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
     # Auto generated... this is not the private key of account
-    user_key = db.Column(db.String(44), nullable=False)
+    account_key = db.Column(db.String(44), nullable=False)
     # One way hashed value from password text
     password = db.Column(db.String(64), nullable=False)
     # user email or string, must be unique clear
@@ -40,6 +45,14 @@ class User(db.Model):
     user_role = db.Column(db.Enum(UserRole), nullable=False)
     # When registered
     applicationdate = db.Column(db.DateTime)
+    # May or may not have a configuration
+    configuration = db.relationship(
+        "UserConfiguration",
+        backref="user",
+        lazy=True,
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class UserConfiguration(db.Model):
@@ -48,20 +61,13 @@ class UserConfiguration(db.Model):
     id = db.Column(
         "configuration_id", db.Integer, nullable=False, primary_key=True
     )
-    user_id = db.Column(db.Integer, db.ForeignKey("user.user_id"))
-    user = db.relationship("User", backref="user", uselist=False)
+    # Owner (user) ID relationship
+    owner_id = db.Column(
+        db.String, db.ForeignKey("user.account_key"), nullable=False
+    )
+    # Urls
     rpc_url = db.Column(db.String(254), nullable=False)
     ws_url = db.Column(db.String(254), nullable=True)
-    active_address = db.Column(db.String(44), nullable=False)
-    account_key = db.Column(db.String(44), nullable=False)
-    config_keys = db.relationship("ConfigKeys", backref="user_configuration")
-
-
-class ConfigKeys(db.Model):
-    """."""
-
-    id = db.Column("key_id", db.Integer, nullable=False, primary_key=True)
-    key_pair = db.Column(db.String(44), nullable=False)
-    config_id = db.Column(
-        db.Integer, db.ForeignKey("user_configuration.configuration_id")
-    )
+    # Addresses and keys
+    active_address = db.Column(db.String(66), nullable=False)
+    private_key = db.Column(db.String(44), nullable=False)

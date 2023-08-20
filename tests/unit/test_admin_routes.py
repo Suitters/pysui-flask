@@ -98,7 +98,7 @@ _BAD_CONTENT: list[dict] = [
 ]
 
 
-def test_admin_create_account_no_data(client: FlaskClient):
+def test_admin_create_account_data_errors(client: FlaskClient):
     """."""
     # Ensure login
     response = client.get("/login", json=json.dumps(ADMIN_LOGIN_CREDS))
@@ -114,6 +114,9 @@ def test_admin_create_account_no_data(client: FlaskClient):
         response = client.post("/user_account", json=json.dumps(bad_content))
         check_error_expect(response, -20)
 
+
+def test_admin_create_account_no_errors(client: FlaskClient):
+    """."""
     # Good data
     good_content = {
         "user": {"username": "FrankC01", "password": "Oxnard Gimble"},
@@ -131,10 +134,17 @@ def test_admin_create_account_no_data(client: FlaskClient):
         },
     }
     response = client.post("/user_account", json=json.dumps(good_content))
-
-    # bad_content = {"config": "bar", "foo": "bar"}
-    # response = client.post("/user_account", json=json.dumps(ADMIN_LOGIN_CREDS))
-    # check_error_expect(response, -20)
+    assert response.status_code == 201
+    result = response.json
+    assert "result" in result and "created" in result["result"]
+    account_key = result["result"]["created"]["account_key"]
+    response = client.get(
+        "/user_account", json=json.dumps({"account_key": account_key})
+    )
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["account"]["user_name"] == "FrankC01"
+    assert result["result"]["account"]["user_role"] == 2
 
 
 # def test_admin_accounts(client: FlaskClient):
