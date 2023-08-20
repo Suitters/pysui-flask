@@ -143,13 +143,5 @@ def test_admin_create_account_no_errors(client: FlaskClient):
     )
     assert response.status_code == 200
     result = response.json
-    assert result["result"]["account"]["user_name"] == "FrankC01"
+    assert result["result"]["account"]["user_name_or_email"] == "FrankC01"
     assert result["result"]["account"]["user_role"] == 2
-
-
-# def test_admin_accounts(client: FlaskClient):
-#     """."""
-#     response = client.get("/accounts")
-#     assert response.status_code == 200
-#     as_json = response.json
-#     print()

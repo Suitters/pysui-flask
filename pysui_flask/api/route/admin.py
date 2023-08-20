@@ -15,19 +15,20 @@
 
 
 import json
-from datetime import datetime
 from http import HTTPStatus
-from flask import (
-    Blueprint,
-    session,
-    request,
-)
+from flask import Blueprint, session, request
 from flasgger import swag_from
 import marshmallow
 from sqlalchemy import and_
 
 from pysui_flask import db
-from . import UserRole, verify_credentials, str_to_hash_hex, User
+from . import (
+    CustomJSONEncoder,
+    UserRole,
+    verify_credentials,
+    str_to_hash_hex,
+    User,
+)
 from pysui_flask.db_tables import UserConfiguration
 from pysui_flask.api_error import *
 from pysui_flask.api.schema.account import (
@@ -103,7 +104,6 @@ def _new_user_reg(user_config: InAccountSetup) -> User:
     user.password = str_to_hash_hex(user_config.user.password)
     user.user_name_or_email = user_config.user.username
     user.user_role = UserRole.user
-    user.applicationdate = datetime.now()
 
     # Create the configuration
     cfg = UserConfiguration()
@@ -170,9 +170,6 @@ def query_user_account():
         User.account_key == q_account["account_key"],
     ).first()
     if user:
-        return {
-            "account": {
-                "user_name": user.user_name_or_email,
-                "user_role": user.user_role.value,
-            }
-        }, 200
+        ujson = json.loads(json.dumps(user, cls=CustomJSONEncoder))
+        ujson.pop("password")
+        return {"account": ujson}, 200

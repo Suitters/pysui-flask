@@ -13,8 +13,11 @@
 
 """Route package init."""
 
-import base64
+import enum
 import hashlib
+import dataclasses
+from datetime import datetime
+import json
 from typing import Union
 from pysui_flask.db_tables import User, UserRole
 from pysui_flask.api_error import APIError, ErrorCodes
@@ -57,3 +60,19 @@ def verify_credentials(
         f"Unable to verify credentials for {username}",
         ErrorCodes.CREDENTIAL_ERROR,
     )
+
+
+class CustomJSONEncoder(json.JSONEncoder):  # <<-- Add this custom encoder
+    """Custom JSON encoder for the DB class."""
+
+    def default(self, o):
+        """."""
+        if dataclasses.is_dataclass(
+            o
+        ):  # this serializes anything dataclass can handle
+            return dataclasses.asdict(o)
+        if isinstance(o, datetime):  # this adds support for datetime
+            return o.isoformat()
+        if isinstance(o, enum.Enum):
+            return o.value
+        return super().default(o)

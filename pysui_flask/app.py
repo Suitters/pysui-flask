@@ -14,7 +14,7 @@
 """Application bootstrap."""
 
 import json
-from datetime import datetime
+
 from flask import Flask, jsonify, request
 from flask_session import Session
 from flasgger import Swagger
@@ -43,7 +43,6 @@ def _pre_populate(app):
         user.password = app.config["ADMIN_PASSWORD"]
         user.user_name_or_email = app.config["ADMIN_NAME"]
         user.user_role = UserRole.admin
-        user.applicationdate = datetime.now()
         db.session.add(user)
         db.session.commit()
     elif result.user_role != UserRole.admin:
@@ -61,11 +60,8 @@ def invalid_api_usage(e):
 
 @app.before_request
 def pre_check():
-    """Check information."""
+    """Check it is json payloads."""
     if not (request.headers.get("Content-Type") == "application/json"):
-        # if request.data and not (
-        #     request.headers.get("Content-Type") == "application/json"
-        # ):
         raise APIError(
             "Expect Content-Type=application/json",
             ErrorCodes.CONTENT_TYPE_ERROR,
@@ -76,7 +72,7 @@ def pre_check():
 
 @app.after_request
 def post_check(response):
-    """Request message."""
+    """Request message imbue with 'result' high level key."""
     if not response.get_json().get("error", None):
         response.data = json.dumps({"result": response.get_json()})
     return response
