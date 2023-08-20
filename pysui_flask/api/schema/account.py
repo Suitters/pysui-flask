@@ -17,7 +17,7 @@
 import base64
 import binascii
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
 from dataclasses_json import dataclass_json, config
 from marshmallow import Schema, fields, validate, pre_load, exceptions
 from pysui.abstracts.client_keypair import SignatureScheme
@@ -41,7 +41,7 @@ SUI_STANDARD_URI: dict[str, dict[str, str]] = {
 
 
 class UserIn(Schema):
-    """."""
+    """Fields for user when requesting a new account in admin."""
 
     username = fields.Str(
         required=True, validate=validate.Length(min=4, max=254)
@@ -52,7 +52,7 @@ class UserIn(Schema):
 
 
 class ExplicitUri(Schema):
-    """."""
+    """Urls associated to the user account being added."""
 
     rpc_url = fields.Url(required=True)
     # ws_url = fields.Url(required=False)
@@ -83,7 +83,7 @@ def _key_for_wallet_key(*, wallet_key: str, key_scheme: str) -> str:
 
 
 class Config(Schema):
-    """."""
+    """Configuration setting when adding new account."""
 
     private_key = fields.Str(required=True, validate=validate.Length(equal=44))
     urls = fields.Nested(ExplicitUri, many=False, required=True)
@@ -118,7 +118,7 @@ class Config(Schema):
 
 
 class AccountSetup(Schema):
-    """."""
+    """Primary wrapper for account setup."""
 
     user = fields.Nested(UserIn, many=False, required=True)
     config = fields.Nested(Config, many=False, required=True)
@@ -126,13 +126,13 @@ class AccountSetup(Schema):
 
 # For performance
 _setup_schema = AccountSetup(many=False)
-# _setup_schemas = AccountSetup(many=True)
+_setup_schemas = AccountSetup(many=True)
 
 
 @dataclass_json
 @dataclass
 class InUser:
-    """."""
+    """New user account dataclass."""
 
     username: str
     password: str
@@ -141,7 +141,7 @@ class InUser:
 @dataclass_json
 @dataclass
 class InUri:
-    """."""
+    """Url settings in user account dataclass."""
 
     rpc_url: str
     ws_url: Optional[str] = None
@@ -150,7 +150,7 @@ class InUri:
 @dataclass_json
 @dataclass
 class InConfig:
-    """."""
+    """Configuration setting dataclass for new account."""
 
     private_key: str
     urls: InUri
@@ -159,7 +159,7 @@ class InConfig:
 @dataclass_json
 @dataclass
 class InAccountSetup:
-    """."""
+    """Container for new user account setup."""
 
     user: InUser
     config: InConfig
@@ -169,46 +169,23 @@ class InAccountSetup:
 _in_account_setup = InAccountSetup.schema()
 
 
-def deserialize_account_setup(in_data: dict) -> InAccountSetup:
+def deserialize_account_setup(in_data: Union[dict, list]) -> InAccountSetup:
     """_summary_ Deserialize inbound account data during user setup.
 
+    It is first passed through marshmallow for validation before
+    converted to dataclasses.
+
     :param in_data: A dictionary of required and optional keywords
-    :type in_data: dict
-    :return: dataclass for result data
-    :rtype: InAccountSetup
+    :type in_data: dict | list
+    :return: dataclass(es) for result data
+    :rtype: InAccountSetup | list[InAccountSetup]
     """
-    return _in_account_setup.load(_setup_schema.load(in_data))
-
-
-# def deserialize_account_setups(in_data: list[dict]) -> InAccountSetup:
-#     """_summary_ Deserialize inbound account data during user setup.
-
-#     :param in_data: A dictionary of required and optional keywords
-#     :type in_data: dict
-#     :return: dataclass for result data
-#     :rtype: InAccountSetup
-#     """
-#     return _in_account_setup.load(_setup_schemas.load(in_data))
+    if isinstance(in_data, dict):
+        return _in_account_setup.load(_setup_schema.load(in_data))
+    elif isinstance(in_data, list):
+        outputs: list = _setup_schemas.load(in_data)
+        return [_in_account_setup.load(x) for x in outputs]
 
 
 if __name__ == "__main__":
-    input = {
-        "user": {"username": "FrankC01", "password": "Oxnard Gimble"},
-        "config": {
-            # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
-            "private_key": {
-                "key_scheme": "ED25519",
-                "wallet_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
-            },
-            # "environment": "devnet",
-            "urls": {
-                "rpc_url": "https://fullnode.devnet.sui.io:443",
-                "ws_url": "https://fullnode.devnet.sui.io:443",
-            },
-        },
-    }
-    user_info = AccountSetup().load(input)
-    print(user_info)
-    dcuser = InAccountSetup.from_dict(user_info)
-    dcuser = _in_account_setup.load(AccountSetup().load(input))
-    print(dcuser)
+    pass

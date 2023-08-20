@@ -23,7 +23,7 @@ from . import db
 
 
 class UserRole(enum.Enum):
-    """."""
+    """Extend as needed."""
 
     admin = 1
     user = 2

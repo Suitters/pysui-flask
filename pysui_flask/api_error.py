@@ -27,6 +27,7 @@ class ErrorCodes(IntEnum):
     CREDENTIAL_ERROR: int = -10
     REQUEST_CONTENT_ERROR: int = -20
     USER_ALREADY_EXISTS: int = -30
+    ACCOUNT_NOT_FOUND: int = -40
 
 
 class APIError(Exception):

@@ -14,8 +14,10 @@
 """Administration module."""
 
 
+from functools import partial
 import json
 from http import HTTPStatus
+from operator import is_not
 from flask import Blueprint, session, request
 from flasgger import swag_from
 import marshmallow
@@ -93,37 +95,46 @@ def admin_login():
 # Add user account - required admin logged in
 
 
-def _new_user_reg(user_config: InAccountSetup) -> User:
-    """."""
-    # Create the user
-    user = User()
-    # Create a new identifying key
-    _, kp = create_new_keypair()
-    user.account_key = kp.serialize()
-    # Hash the user password
-    user.password = str_to_hash_hex(user_config.user.password)
-    user.user_name_or_email = user_config.user.username
-    user.user_role = UserRole.user
+def _new_user_reg(user_configs: list[InAccountSetup]) -> list[User]:
+    """_summary_ Process one or more new user registrations.
 
-    # Create the configuration
-    cfg = UserConfiguration()
-    cfg.rpc_url = user_config.config.urls.rpc_url
-    cfg.ws_url = user_config.config.urls.ws_url
-    cfg.private_key = user_config.config.private_key
-    # Get the keypair from private seed
-    kp = keypair_from_keystring(user_config.config.private_key)
-    # Convert to address
-    cfg.active_address = SuiAddress.from_bytes(
-        kp.public_key.scheme_and_key()
-    ).address
+    :param user_configs: list of one or more new account registrations
+    :type user_configs: list[InAccountSetup]
+    :return: List of committed User types
+    :rtype: list[User]
+    """
+    users: list[User] = []
+    for user_config in user_configs:
+        # Create the user
+        user = User()
+        # Create a new identifying key
+        _, kp = create_new_keypair()
+        user.account_key = kp.serialize()
+        # Hash the user password
+        user.password = str_to_hash_hex(user_config.user.password)
+        user.user_name_or_email = user_config.user.username
+        user.user_role = UserRole.user
 
-    # Create the relationship
-    user.configuration = cfg
-    # Add and commit
-    db.session.add(user)
+        # Create the configuration
+        cfg = UserConfiguration()
+        cfg.rpc_url = user_config.config.urls.rpc_url
+        cfg.ws_url = user_config.config.urls.ws_url
+        cfg.private_key = user_config.config.private_key
+        # Get the keypair from private seed
+        kp = keypair_from_keystring(user_config.config.private_key)
+        # Convert to address
+        cfg.active_address = SuiAddress.from_bytes(
+            kp.public_key.scheme_and_key()
+        ).address
+
+        # Create the relationship
+        user.configuration = cfg
+        # Add and commit
+        db.session.add(user)
+        users.append(user)
     db.session.commit()
 
-    return user
+    return users
 
 
 @admin_api.post("/user_account")
@@ -151,18 +162,60 @@ def new_user_account():
             ErrorCodes.USER_ALREADY_EXISTS,
         )
     # Create the new user and configuration
-    user_persist = _new_user_reg(user_in)
+    user_persist = _new_user_reg([user_in])
     return {
         "created": {
-            "user_name": user_in.user.username,
-            "account_key": user_persist.account_key,
+            "user_name": user_persist[0].user_name_or_email,
+            "account_key": user_persist[0].account_key,
         }
     }, 201
 
 
-@admin_api.get("/user_account")
+@admin_api.post("/user_accounts")
+def new_user_accounts():
+    """Admin registration of bulk new user account."""
+    _admin_login_required()
+    try:
+        # Deserialize
+        users_in: InAccountSetup = deserialize_account_setup(
+            json.loads(request.get_json())
+        )
+        # Check if user exists
+        users = [
+            User.query.filter(
+                and_(
+                    User.user_name_or_email.like(x.user.username),
+                    User.user_role == UserRole.user,
+                )
+            ).first()
+            for x in users_in
+        ]
+        users = list(filter(partial(is_not, None), users))
+    except marshmallow.ValidationError as ve:
+        _content_expected(ve.messages)
+    # When we have a user with username and User role, fail
+    if users:
+        names = [x.user_name_or_email for x in users]
+        raise APIError(
+            f"Username {names} already exists.",
+            ErrorCodes.USER_ALREADY_EXISTS,
+        )
+    # Create the new user and configuration
+    user_result: list = []
+
+    for users_persist in _new_user_reg(users_in):
+        user_result.append(
+            {
+                "user_name": users_persist.user_name_or_email,
+                "account_key": users_persist.account_key,
+            }
+        )
+    return {"created": user_result}, 201
+
+
+@admin_api.get("/user_account/key")
 def query_user_account():
-    """."""
+    """Get a user account by account key"""
     _admin_login_required()
     q_account = json.loads(request.get_json())
 
@@ -173,3 +226,7 @@ def query_user_account():
         ujson = json.loads(json.dumps(user, cls=CustomJSONEncoder))
         ujson.pop("password")
         return {"account": ujson}, 200
+    raise APIError(
+        f"Account {q_account} not found.",
+        ErrorCodes.ACCOUNT_NOT_FOUND,
+    )

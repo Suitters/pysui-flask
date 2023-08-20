@@ -22,17 +22,24 @@ from pysui_flask import app as pysui_app
 
 def _session_cleanup():
     """Deletes the session directory after all tests in module completed."""
-    cwd = Path.cwd().joinpath("flask_session")
-    if cwd.exists() and cwd.is_dir():
-        for pfile in cwd.glob("*"):
+    session_cwd = Path.cwd().joinpath("flask_session")
+    if session_cwd.exists() and session_cwd.is_dir():
+        for pfile in session_cwd.glob("*"):
             if pfile.is_file():
                 pfile.unlink()
-        cwd.rmdir()
+        session_cwd.rmdir()
+
+
+def _db_cleanup():
+    """Delete the test_project database after all tests in module completed."""
+    db_cwd = Path.cwd().joinpath("instance/test_project.db")
+    if db_cwd.exists() and db_cwd.is_file():
+        db_cwd.unlink()
 
 
 @pytest.fixture(scope="module")
 def client() -> FlaskClient:
-    """."""
+    """Initialize a Flask test client."""
     app = pysui_app.create_app()
     app.config["TESTING"] = True
 
@@ -42,3 +49,4 @@ def client() -> FlaskClient:
             print("exiting client")
     print("exiting context")
     _session_cleanup()
+    _db_cleanup()
