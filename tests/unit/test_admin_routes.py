@@ -161,7 +161,7 @@ def test_admin_create_account_no_errors(client: FlaskClient):
     )
     assert response.status_code == 200
     result = response.json
-    assert result["result"]["account"]["user_name_or_email"] == "FrankC01"
+    assert result["result"]["account"]["user_name"] == "FrankC01"
     assert result["result"]["account"]["user_role"] == 2
 
     bulk: list[dict] = [_do_good(x) for x in range(2, 9)]
@@ -170,3 +170,20 @@ def test_admin_create_account_no_errors(client: FlaskClient):
     result = response.json
     assert result["result"]["created"]
     assert len(result["result"]["created"]) == len(bulk)
+
+
+def test_admin_all_accounts(client: FlaskClient):
+    """Validate getting all accounts."""
+    # response = client.get("/user_accounts", json=json.dumps({"limit": 50}))
+    # assert response.status_code == 200
+    response = client.get("/user_accounts", json=json.dumps({"count": 2}))
+    assert response.status_code == 200
+    result = response.json["result"]
+    while result["cursor"]["has_remaining_data"]:
+        response = client.get(
+            "/user_accounts/" + str(result["cursor"]["next_page"]),
+            json=json.dumps({"count": 4}),
+        )
+        assert response.status_code == 200
+        result = response.json["result"]
+    print(result)

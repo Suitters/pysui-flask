@@ -35,6 +35,7 @@ from pysui_flask.db_tables import UserConfiguration
 from pysui_flask.api_error import *
 from pysui_flask.api.schema.account import (
     InAccountSetup,
+    OutUser,
     deserialize_account_setup,
 )
 
@@ -224,9 +225,61 @@ def query_user_account():
     ).first()
     if user:
         ujson = json.loads(json.dumps(user, cls=CustomJSONEncoder))
-        ujson.pop("password")
-        return {"account": ujson}, 200
+        ujson["configuration"] = json.loads(
+            json.dumps(user.configuration, cls=CustomJSONEncoder)
+        )
+        return {
+            "account": OutUser(
+                partial=True, unknown="exclude", many=False
+            ).load(ujson)
+        }, 200
     raise APIError(
         f"Account {q_account} not found.",
         ErrorCodes.ACCOUNT_NOT_FOUND,
     )
+
+
+@admin_api.get("/user_accounts", defaults={"page": 1})
+@admin_api.get("/user_accounts/<int:page>")
+def query_user_accounts(page):
+    """Fetches all user accounts."""
+    _admin_login_required()
+    page = page
+    q_accounts = json.loads(request.get_json())
+    # Setup pagination parameters
+    page_max_count = 50
+    page_count = page_max_count
+    user_count = q_accounts.get("count", 0)
+    if user_count and user_count <= 50:
+        page_count = user_count
+
+    # users = User.query.filter(User.user_role == UserRole.user).all()
+    users = User.query.filter(User.user_role == UserRole.user).paginate(
+        page=page,
+        per_page=page_count,
+        error_out=False,
+        max_per_page=page_max_count,
+    )
+    # Set cursor for iterations
+    cursor = {
+        "requested_count": user_count,
+        "actual_count": len(users.items),
+        "current_page": page,
+        "total_pages": users.pages,
+        "has_remaining_data": users.has_next,
+        "next_page": users.next_num,
+    }
+    in_data: list[dict] = []
+    for user in users.items:
+        ujson = json.loads(json.dumps(user, cls=CustomJSONEncoder))
+        cjson = json.loads(
+            json.dumps(user.configuration, cls=CustomJSONEncoder)
+        )
+        ujson["configuration"] = cjson
+        in_data.append(ujson)
+    return {
+        "accounts": OutUser(partial=True, unknown="exclude", many=True).load(
+            in_data
+        ),
+        "cursor": cursor,
+    }, 200

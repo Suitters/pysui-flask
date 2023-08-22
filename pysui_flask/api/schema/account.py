@@ -18,7 +18,7 @@ import base64
 import binascii
 from dataclasses import dataclass, field
 from typing import Optional, Union
-from dataclasses_json import dataclass_json, config
+from dataclasses_json import dataclass_json, Undefined
 from marshmallow import Schema, fields, validate, pre_load, exceptions
 from pysui.abstracts.client_keypair import SignatureScheme
 from pysui.sui.sui_constants import SUI_HEX_ADDRESS_STRING_LEN
@@ -187,5 +187,39 @@ def deserialize_account_setup(in_data: Union[dict, list]) -> InAccountSetup:
         return [_in_account_setup.load(x) for x in outputs]
 
 
+class OutConfig(Schema):
+    """Configuration setting dataclass for new account."""
+
+    rpc_url = fields.Str()
+    active_address = fields.Str()
+    ws_url = fields.Str()
+
+
+class OutUser(Schema):
+    """New user account dataclass."""
+
+    user_name = fields.Str(data_key="user_name_or_email")
+    account_key = fields.Str()
+    user_role = fields.Int()
+    creation_date = fields.Str()
+    configuration = fields.Nested(OutConfig, many=False, unknown="exclude")
+
+
 if __name__ == "__main__":
-    pass
+    faux_config = {
+        "rpc_url": "a",
+        "ws_url": "b",
+        "active_address": "c",
+        "extra": "d",
+    }
+    faux_user = {
+        "user_name_or_email": "a",
+        "account_key": "b",
+        "user_role": "c",
+        "creation_date": "d",
+        "configuration": faux_config,
+    }
+    res = OutConfig(partial=True, unknown="exclude").load(faux_config)
+    # print(res)
+    res = OutUser(partial=True, unknown="exclude").load(faux_user)
+    print(res)
