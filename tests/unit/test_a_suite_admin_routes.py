@@ -16,6 +16,8 @@ import json
 
 from flask.testing import FlaskClient
 
+from tests.unit.utils import check_error_expect
+
 ADMIN_LOGIN_CREDS: dict = {
     "username": "fastfrank",
     "password": "Oxnard Gimble",
@@ -24,22 +26,15 @@ ADMIN_LOGIN_CREDS: dict = {
 # Negative testing before session
 
 
-def check_error_expect(response, ecode):
-    """Assert on error results."""
-    assert response.status_code == 200
-    assert "error" in response.json
-    assert response.json["error_code"] == ecode
-
-
 def test_admin_pre_login_root(client: FlaskClient):
-    """Validate error on empty request."""
-    response = client.get("/")
+    """Validate error on non-JSON and empty request."""
+    response = client.get("/admin/")
     check_error_expect(response, -5)
 
 
 def test_no_login(client: FlaskClient):
-    """Validate error on no session."""
-    response = client.post("/user_account")
+    """Validate error on non-JSON and empty request."""
+    response = client.post("/admin/user_account")
     check_error_expect(response, -5)
 
 
@@ -49,7 +44,7 @@ def test_bad_content(client: FlaskClient):
         "username": "fastfrank",
         "password": "Slippery Slope",
     }
-    response = client.get("/login", data=json.dumps(creds))
+    response = client.get("/admin/login", data=json.dumps(creds))
     check_error_expect(response, -5)
 
 
@@ -59,7 +54,7 @@ def test_bad_admin_login(client: FlaskClient):
         "username": "fastfrank",
         "password": "Slippery Slope",
     }
-    response = client.get("/login", json=json.dumps(creds))
+    response = client.get("/admin/login", json=json.dumps(creds))
     check_error_expect(response, -10)
 
 
@@ -69,14 +64,14 @@ def test_bad_credential_length(client: FlaskClient):
         "username": "fastfra",
         "password": "Slippery Slope",
     }
-    response = client.get("/login", json=json.dumps(creds))
+    response = client.get("/admin/login", json=json.dumps(creds))
     check_error_expect(response, -10)
 
 
 # Valid login
 def test_admin_login(client: FlaskClient):
     """Validate good login credentials."""
-    response = client.get("/login", json=json.dumps(ADMIN_LOGIN_CREDS))
+    response = client.get("/admin/login", json=json.dumps(ADMIN_LOGIN_CREDS))
     assert response.status_code == 200
     result = response.json
     assert "result" in result and "session" in result["result"]
@@ -84,7 +79,7 @@ def test_admin_login(client: FlaskClient):
 
 def test_admin_post_login_root(client: FlaskClient):
     """Validate logged in already."""
-    response = client.get("/", json={})
+    response = client.get("/admin/", json={})
     assert response.status_code == 200
     result = response.json
     assert "result" in result and "session" in result["result"]
@@ -101,20 +96,22 @@ _BAD_CONTENT: list[dict] = [
 def test_admin_create_account_data_errors(client: FlaskClient):
     """Validate various bad user account configurations."""
     # Ensure login
-    response = client.get("/login", json=json.dumps(ADMIN_LOGIN_CREDS))
+    response = client.get("/admin/login", json=json.dumps(ADMIN_LOGIN_CREDS))
     assert response.status_code == 200
     result = response.json
     assert "result" in result and "session" in result["result"]
 
     for bad_content in _BAD_CONTENT:
-        response = client.post("/user_account", json=json.dumps(bad_content))
+        response = client.post(
+            "/admin/user_account", json=json.dumps(bad_content)
+        )
         check_error_expect(response, -20)
 
 
 def test_admin_account_not_found(client: FlaskClient):
     """Validate no account found."""
     response = client.get(
-        "/user_account/key",
+        "/admin/user_account/key",
         json=json.dumps(
             {"account_key": "AKkeo/3DD7dra88PdTPhBngdbdTOBHJq8GrnWIfbKsb7"}
         ),
@@ -151,13 +148,16 @@ def test_admin_create_account_no_errors(client: FlaskClient):
     # Good data
     good_content = _do_good(1)
 
-    response = client.post("/user_account", json=json.dumps(good_content))
+    response = client.post(
+        "/admin/user_account", json=json.dumps(good_content)
+    )
     assert response.status_code == 201
     result = response.json
     assert "result" in result and "created" in result["result"]
     account_key = result["result"]["created"]["account_key"]
     response = client.get(
-        "/user_account/key", json=json.dumps({"account_key": account_key})
+        "/admin/user_account/key",
+        json=json.dumps({"account_key": account_key}),
     )
     assert response.status_code == 200
     result = response.json
@@ -165,7 +165,7 @@ def test_admin_create_account_no_errors(client: FlaskClient):
     assert result["result"]["account"]["user_role"] == 2
 
     bulk: list[dict] = [_do_good(x) for x in range(2, 9)]
-    response = client.post("/user_accounts", json=json.dumps(bulk))
+    response = client.post("/admin/user_accounts", json=json.dumps(bulk))
     assert response.status_code == 201
     result = response.json
     assert result["result"]["created"]
@@ -176,12 +176,14 @@ def test_admin_all_accounts(client: FlaskClient):
     """Validate getting all accounts."""
     # response = client.get("/user_accounts", json=json.dumps({"limit": 50}))
     # assert response.status_code == 200
-    response = client.get("/user_accounts", json=json.dumps({"count": 2}))
+    response = client.get(
+        "/admin/user_accounts", json=json.dumps({"count": 2})
+    )
     assert response.status_code == 200
     result = response.json["result"]
     while result["cursor"]["has_remaining_data"]:
         response = client.get(
-            "/user_accounts/" + str(result["cursor"]["next_page"]),
+            "/admin/user_accounts/" + str(result["cursor"]["next_page"]),
             json=json.dumps({"count": 4}),
         )
         assert response.status_code == 200

@@ -16,10 +16,12 @@
 
 from functools import partial
 import json
-from http import HTTPStatus
+
+# from http import HTTPStatus
 from operator import is_not
 from flask import Blueprint, session, request
-from flasgger import swag_from
+
+# from flasgger import swag_from
 import marshmallow
 from sqlalchemy import and_
 
@@ -43,7 +45,7 @@ from pysui import SuiAddress
 from pysui.sui.sui_crypto import create_new_keypair, keypair_from_keystring
 
 
-admin_api = Blueprint("admin", __name__)
+admin_api = Blueprint("admin", __name__, url_prefix="/admin")
 
 
 def _admin_login_required():
@@ -58,15 +60,15 @@ def _content_expected(fields):
 
 
 @admin_api.get("/")
-@swag_from(
-    {
-        "responses": {
-            HTTPStatus.OK.value: {
-                "description": "Admin for pysui-flask",
-            }
-        }
-    }
-)
+# @swag_from(
+#     {
+#         "responses": {
+#             HTTPStatus.OK.value: {
+#                 "description": "Admin for pysui-flask",
+#             }
+#         }
+#     }
+# )
 def admin():
     """Admin root.
 
@@ -234,7 +236,7 @@ def query_user_account():
             ).load(ujson)
         }, 200
     raise APIError(
-        f"Account {q_account} not found.",
+        f"Account {q_account} not exist.",
         ErrorCodes.ACCOUNT_NOT_FOUND,
     )
 

@@ -49,7 +49,9 @@ def verify_credentials(
     :rtype: User
     """
     # Find user
-    result: User = User.query.filter_by(user_name_or_email=username).first()
+    result: User = User.query.filter(
+        User.user_name_or_email == username
+    ).first()
     # Verify credentials
     if result:
         if result.user_role == expected_role:

@@ -37,7 +37,7 @@ def _db_cleanup():
         db_cwd.unlink()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def client() -> FlaskClient:
     """Initialize a Flask test client."""
     app = pysui_app.create_app()
