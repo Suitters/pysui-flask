@@ -13,8 +13,11 @@
 
 """Pytest account routes."""
 import json
-
+import base64
 from flask.testing import FlaskClient
+
+from pysui import SyncClient, SuiConfig
+from pysui.sui.sui_txn import SyncTransaction
 
 from tests.unit.utils import check_error_expect
 
@@ -54,9 +57,74 @@ def test_account_post_login_root(client: FlaskClient):
     assert result["result"]["account"]["user_role"] == 2
 
 
-def test_account_get_gas(client: FlaskClient):
-    """Should be empty."""
+# Sui Calls
 
 
-def test_account_get_objects(client: FlaskClient):
+def test_get_gas(client: FlaskClient):
+    """Should have some gas."""
+    response = client.get("/account/gas", json=json.dumps({"all": False}))
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["data"][0]
+
+
+def test_get_objects(client: FlaskClient):
+    """Should have some objects."""
+    response = client.get("/account/objects", json=json.dumps({"all": False}))
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["data"]
+
+
+def test_get_object(client: FlaskClient):
+    """Should not be empty."""
+    response = client.get(
+        "/account/object/0x5464b56a2ab51547cd7da5fe0e31278b833bf54d87df2be93c85b738f83cfb05",
+        json=json.dumps({}),
+    )
+    assert response.status_code == 200
+    result = response.json
+
+
+def test_pysui_tx_inspect(client: FlaskClient):
+    """Test deserializing and inspecting a SuiTransaction."""
+    sclient = SyncClient(
+        SuiConfig.user_config(
+            rpc_url="https://fullnode.devnet.sui.io:443",
+            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
+        )
+    )
+    txer = SyncTransaction(sclient)
+    scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
+    txer.transfer_objects(
+        transfers=[scoin], recipient=sclient.config.active_address
+    )
+    inspect_dict = {"tx_base64": base64.b64encode(txer.serialize()).decode()}
+    response = client.get("/account/pysui_txn", json=json.dumps(inspect_dict))
+    assert response.status_code == 200
+    assert "error" not in response.json
+    result = response.json
+
+
+def test_pysui_tx_execute(client: FlaskClient):
+    """Test deserializing and inspecting a SuiTransaction."""
+    sclient = SyncClient(
+        SuiConfig.user_config(
+            rpc_url="https://fullnode.devnet.sui.io:443",
+            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
+        )
+    )
+    txer = SyncTransaction(sclient)
+    scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
+    txer.transfer_objects(
+        transfers=[scoin], recipient=sclient.config.active_address
+    )
+    inspect_dict = {"tx_base64": base64.b64encode(txer.serialize()).decode()}
+    response = client.post("/account/pysui_txn", json=json.dumps(inspect_dict))
+    assert response.status_code == 200
+    assert "error" not in response.json
+    result = response.json
+
+
+def test_add_multisig(client: FlaskClient):
     """Should be empty."""

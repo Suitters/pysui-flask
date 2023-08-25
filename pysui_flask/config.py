@@ -27,8 +27,6 @@ class Config:
     """Base config defaults."""
 
     SECRET_KEY = os.environ.get("SECRET_KEY")
-    ADMIN_NAME = os.environ.get("ADMIN_NAME")
-    ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
     SESSION_TYPE = os.environ.get("SESSION_TYPE")
     SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
 
@@ -37,6 +35,8 @@ class ProdConfig(Config):
     """."""
 
     FLASK_ENV = "production"
+    ADMIN_NAME = os.environ.get("PROD_ADMIN_NAME")
+    ADMIN_PASSWORD = os.environ.get("PROD_ADMIN_PASSWORD")
     DEBUG = False
     TESTING = False
     SQLALCHEMY_DATABASE_URI = os.environ.get("PROD_DATABASE")
@@ -52,6 +52,8 @@ class DevConfig(Config):
     """."""
 
     FLASK_ENV = "development"
+    ADMIN_NAME = os.environ.get("DEV_ADMIN_NAME")
+    ADMIN_PASSWORD = os.environ.get("DEV_ADMIN_PASSWORD")
     DEBUG = True
     TESTING = True
     SQLALCHEMY_DATABASE_URI = os.environ.get("DEV_DATABASE")

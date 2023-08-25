@@ -28,6 +28,10 @@ class ErrorCodes(IntEnum):
     REQUEST_CONTENT_ERROR: int = -20
     USER_ALREADY_EXISTS: int = -30
     ACCOUNT_NOT_FOUND: int = -40
+    # pysui errors
+    PYSUI_ERROR_BASE: int = -1000
+    # sui errors
+    SUI_ERROR_BASE: int = -2000
 
 
 class APIError(Exception):
