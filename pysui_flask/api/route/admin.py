@@ -19,7 +19,7 @@ import json
 
 # from http import HTTPStatus
 from operator import is_not
-from flask import Blueprint, session, request
+from flask import Blueprint, session, request, current_app
 
 # from flasgger import swag_from
 import marshmallow
@@ -249,10 +249,10 @@ def query_user_accounts(page):
     page = page
     q_accounts = json.loads(request.get_json())
     # Setup pagination parameters
-    page_max_count = 50
+    page_max_count = current_app.config["CONSTRAINTS"].entries_per_page
     page_count = page_max_count
     user_count = q_accounts.get("count", 0)
-    if user_count and user_count <= 50:
+    if user_count and user_count <= page_max_count:
         page_count = user_count
 
     # users = User.query.filter(User.user_role == UserRole.user).all()

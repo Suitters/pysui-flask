@@ -16,11 +16,19 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from dataclasses import dataclass
 from dotenv import load_dotenv
 
 # This gets the app dir and we want to go one back
 basedir = Path(os.path.abspath(os.path.dirname(__file__)))
 load_dotenv(basedir.joinpath(".env"))
+
+
+@dataclass
+class Constraints:
+    """Constraints for routes."""
+
+    entries_per_page: int = 50
 
 
 class Config:
@@ -29,6 +37,7 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     SESSION_TYPE = os.environ.get("SESSION_TYPE")
     SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
+    CONSTRAINTS = Constraints()
 
 
 class ProdConfig(Config):

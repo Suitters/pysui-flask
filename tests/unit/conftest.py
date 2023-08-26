@@ -22,31 +22,38 @@ from pysui_flask import app as pysui_app
 
 def _session_cleanup():
     """Deletes the session directory after all tests in module completed."""
-    session_cwd = Path.cwd().joinpath("flask_session")
-    if session_cwd.exists() and session_cwd.is_dir():
-        for pfile in session_cwd.glob("*"):
+    session_dir = Path.cwd().joinpath("flask_session")
+    if session_dir.exists() and session_dir.is_dir():
+        for pfile in session_dir.glob("*"):
             if pfile.is_file():
                 pfile.unlink()
-        session_cwd.rmdir()
+        session_dir.rmdir()
 
 
 def _db_cleanup():
     """Delete the test_project database after all tests in module completed."""
-    db_cwd = Path.cwd().joinpath("instance/test_project.db")
-    if db_cwd.exists() and db_cwd.is_file():
-        db_cwd.unlink()
+    instance_dir = Path.cwd().joinpath("instance")
+    if instance_dir.exists() and instance_dir.is_dir():
+        for pfile in instance_dir.glob("*"):
+            if pfile.is_file():
+                pfile.unlink()
+        instance_dir.rmdir()
+
+
+def cleanup_wipe():
+    """Cleans up (wipes) session and test db."""
+    _session_cleanup()
+    _db_cleanup()
 
 
 @pytest.fixture(scope="session")
 def client() -> FlaskClient:
     """Initialize a Flask test client."""
+    cleanup_wipe()
     app = pysui_app.create_app()
     app.config["TESTING"] = True
 
     with app.app_context():
         with app.test_client() as client:
             yield client
-            print("exiting client")
-    print("exiting context")
-    _session_cleanup()
-    _db_cleanup()
+    cleanup_wipe()
