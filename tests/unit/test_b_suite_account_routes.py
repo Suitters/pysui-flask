@@ -106,6 +106,29 @@ def test_pysui_tx_inspect(client: FlaskClient):
     result = response.json
 
 
+# def test_pysui_tx_verification(client: FlaskClient):
+#     """Test deserializing and inspecting a SuiTransaction."""
+#     sclient = SyncClient(
+#         SuiConfig.user_config(
+#             rpc_url="https://fullnode.devnet.sui.io:443",
+#             prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
+#         )
+#     )
+#     txer = SyncTransaction(sclient)
+#     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
+#     txer.transfer_objects(
+#         transfers=[scoin], recipient=sclient.config.active_address
+#     )
+#     inspect_dict = {
+#         "tx_base64": base64.b64encode(txer.serialize()).decode(),
+#         "perform": "verification",
+#     }
+#     response = client.get("/account/pysui_txn", json=json.dumps(inspect_dict))
+#     assert response.status_code == 200
+#     assert "error" not in response.json
+#     result = response.json
+
+
 def test_pysui_tx_execute(client: FlaskClient):
     """Test deserializing and inspecting a SuiTransaction."""
     sclient = SyncClient(
