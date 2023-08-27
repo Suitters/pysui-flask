@@ -27,6 +27,23 @@ class UserRole(enum.Enum):
 
     admin = 1
     user = 2
+    multisig = 3
+
+
+class MultiSigStatus(enum.Enum):
+    """Extend as needed."""
+
+    pending_confirmations = 1
+    confirmed = 2
+    rejected = 3
+
+
+class MsMemberStatus(enum.Enum):
+    """Extend as needed."""
+
+    request_posted = 1
+    confirmed = 2
+    rejected = 3
 
 
 @dataclasses.dataclass
@@ -59,6 +76,22 @@ class User(db.Model):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    # May or may not have multi-sig join requests
+    multisig_requests = db.relationship(
+        "MultiSigRequests",
+        backref="user",
+        lazy=True,
+        uselist=True,
+        cascade="all, delete-orphan",
+    )
+    # May or may not have signing requests
+    sign_requests = db.relationship(
+        "SignatureRequests",
+        backref="user",
+        lazy=True,
+        uselist=True,
+        cascade="all, delete-orphan",
+    )
 
 
 @dataclasses.dataclass
@@ -66,7 +99,11 @@ class UserConfiguration(db.Model):
     """Configuration for instantiating SuiConfig for User."""
 
     id: int = db.Column(
-        "configuration_id", db.Integer, nullable=False, primary_key=True
+        "configuration_id",
+        db.Integer,
+        nullable=False,
+        primary_key=True,
+        autoincrement=True,
     )
     # Owner (user) ID relationship
     owner_id: str = db.Column(
@@ -76,5 +113,91 @@ class UserConfiguration(db.Model):
     rpc_url: str = db.Column(db.String(254), nullable=False)
     ws_url: str = db.Column(db.String(254), nullable=True)
     # Addresses and keys
-    active_address: str = db.Column(db.String(66), nullable=False)
-    private_key: str = db.Column(db.String(44), nullable=False)
+    # May be nullable if role of primary owner is MultiSig type
+    # The active_address gets completed when a multisig is confirmed
+    active_address: str = db.Column(db.String(66), nullable=True)
+    private_key: str = db.Column(db.String(44), nullable=True)
+
+
+# Multi-Sig
+
+
+@dataclasses.dataclass
+class MultiSignature(db.Model):
+    """MultiSignature base."""
+
+    id: int = db.Column(
+        "multisig_id",
+        db.Integer,
+        nullable=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    # Account (user) owner ID of the MultiSig
+    owner_id: str = db.Column(
+        db.String, db.ForeignKey("user.account_key"), nullable=False
+    )
+    status: int = db.Column(db.Enum(MultiSigStatus), nullable=False)
+    # Contains one or more members
+    multisig_members = db.relationship(
+        "MultiSigMember",
+        backref="multi_signature",
+        lazy=True,
+        uselist=True,
+        cascade="all, delete-orphan",
+    )
+
+
+@dataclasses.dataclass
+class MultiSigMember(db.Model):
+    """MultiSignature base member."""
+
+    id: int = db.Column(
+        "ms_member_id",
+        db.Integer,
+        nullable=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    weight: int = db.Column(db.Integer, nullable=False)
+    position: int = db.Column(db.Integer, nullable=False)
+    # Owner (user) ID of the MultiSig, should be the user address
+    owner_id: str = db.Column(
+        db.String, db.ForeignKey("multi_signature.multisig_id"), nullable=False
+    )
+    status: int = db.Column(db.Enum(MsMemberStatus), nullable=False)
+
+
+# Request queues
+
+
+@dataclasses.dataclass
+class MultiSigRequests(db.Model):
+    """MultiSignature base member requesst queue."""
+
+    id: int = db.Column(
+        "ms_request_id",
+        db.Integer,
+        nullable=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    member_id: str = db.Column(
+        db.String, db.ForeignKey("user.account_key"), nullable=False
+    )
+
+
+@dataclasses.dataclass
+class SignatureRequests(db.Model):
+    """Signature requesst queue."""
+
+    id: int = db.Column(
+        "sig_request_id",
+        db.Integer,
+        nullable=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    signing_id: str = db.Column(
+        db.String, db.ForeignKey("user.account_key"), nullable=False
+    )

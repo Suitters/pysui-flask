@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ea843c1705972828bf799b025cf0c24bc78329999b1c7925e061932384f7ca03"
+            "sha256": "92e560973e68dfbe465e00c9cd861d2e9edadce6452d34feed6dcc09a0ca078c"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -328,18 +328,15 @@
             "version": "==23.1"
         },
         "pysui": {
-            "hashes": [
-                "sha256:be560da92abb1f072c0f0baee75b7f7abf626b97c89e92b7438bb4777790c27e"
-            ],
-            "index": "pypi",
-            "version": "==0.33.0"
+            "path": "./../pysui",
+            "version": "==0.34.0"
         },
         "pysui-fastcrypto": {
             "hashes": [
-                "sha256:b94477e2a73a231746379bb6cb7fdfb6251e9d19aaf5d278df2eaeabaf7f4b43"
+                "sha256:c4ed8ea736f9b9bf8bc8a5008d770771645a63778d30879f09bd42f1172d41e8"
             ],
-            "markers": "python_version >= '3.10'",
-            "version": "==0.1.4"
+            "path": "./../pysui-fastcrypto/target/wheels/pysui_fastcrypto-0.2.0-cp310-abi3-macosx_11_0_arm64.whl",
+            "version": "==0.2.0"
         },
         "python-dotenv": {
             "hashes": [
@@ -511,7 +508,7 @@
                 "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926",
                 "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.16.0"
         },
         "sniffio": {
@@ -1152,11 +1149,11 @@
         },
         "pluggy": {
             "hashes": [
-                "sha256:c2fd55a7d7a3863cba1a013e4e2414658b1d07b6bc57b3919e0c63c9abb99849",
-                "sha256:d12f0c4b579b15f5e054301bb226ee85eeeba08ffec228092f8defbaa3a4c4b3"
+                "sha256:cf61ae8f126ac6f7c451172cf30e3e43d3ca77615509771b3a984a0730651e12",
+                "sha256:d89c696a773f8bd377d18e5ecda92b7a3793cbe66c87060a6fb58c7b6e1061f7"
             ],
-            "markers": "python_version >= '3.7'",
-            "version": "==1.2.0"
+            "markers": "python_version >= '3.8'",
+            "version": "==1.3.0"
         },
         "pycparser": {
             "hashes": [
@@ -1258,7 +1255,7 @@
                 "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926",
                 "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
             ],
-            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2'",
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
             "version": "==1.16.0"
         },
         "snowballstemmer": {

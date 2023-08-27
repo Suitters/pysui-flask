@@ -48,6 +48,7 @@ def test_good_login_content(client: FlaskClient):
     assert "result" in result and "session" in result["result"]
 
 
+# 0x94a1d8d13ad80563f307362f730e84691fa1cde7b83932abae0af2620c3e0855
 def test_account_post_login_root(client: FlaskClient):
     """Validate error on non-JSON and empty request."""
     response = client.get("/account/", json=json.dumps({}))
@@ -106,30 +107,7 @@ def test_pysui_tx_inspect(client: FlaskClient):
     result = response.json
 
 
-# def test_pysui_tx_verification(client: FlaskClient):
-#     """Test deserializing and inspecting a SuiTransaction."""
-#     sclient = SyncClient(
-#         SuiConfig.user_config(
-#             rpc_url="https://fullnode.devnet.sui.io:443",
-#             prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
-#         )
-#     )
-#     txer = SyncTransaction(sclient)
-#     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
-#     txer.transfer_objects(
-#         transfers=[scoin], recipient=sclient.config.active_address
-#     )
-#     inspect_dict = {
-#         "tx_base64": base64.b64encode(txer.serialize()).decode(),
-#         "perform": "verification",
-#     }
-#     response = client.get("/account/pysui_txn", json=json.dumps(inspect_dict))
-#     assert response.status_code == 200
-#     assert "error" not in response.json
-#     result = response.json
-
-
-def test_pysui_tx_execute(client: FlaskClient):
+def test_pysui_tx_verification(client: FlaskClient):
     """Test deserializing and inspecting a SuiTransaction."""
     sclient = SyncClient(
         SuiConfig.user_config(
@@ -142,11 +120,36 @@ def test_pysui_tx_execute(client: FlaskClient):
     txer.transfer_objects(
         transfers=[scoin], recipient=sclient.config.active_address
     )
-    inspect_dict = {"tx_base64": base64.b64encode(txer.serialize()).decode()}
-    response = client.post("/account/pysui_txn", json=json.dumps(inspect_dict))
+    inspect_dict = {
+        "tx_base64": base64.b64encode(txer.serialize()).decode(),
+        "perform": "verification",
+    }
+    response = client.get("/account/pysui_txn", json=json.dumps(inspect_dict))
     assert response.status_code == 200
     assert "error" not in response.json
     result = response.json
+    assert isinstance(result["result"]["verification"], str)
+    assert result["result"]["verification"] == "success"
+
+
+# def test_pysui_tx_execute(client: FlaskClient):
+#     """Test deserializing and inspecting a SuiTransaction."""
+#     sclient = SyncClient(
+#         SuiConfig.user_config(
+#             rpc_url="https://fullnode.devnet.sui.io:443",
+#             prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
+#         )
+#     )
+#     txer = SyncTransaction(sclient)
+#     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
+#     txer.transfer_objects(
+#         transfers=[scoin], recipient=sclient.config.active_address
+#     )
+#     inspect_dict = {"tx_base64": base64.b64encode(txer.serialize()).decode()}
+#     response = client.post("/account/pysui_txn", json=json.dumps(inspect_dict))
+#     assert response.status_code == 200
+#     assert "error" not in response.json
+#     result = response.json
 
 
 def test_add_multisig(client: FlaskClient):

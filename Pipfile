@@ -9,10 +9,11 @@ flasgger = "*"
 flask-marshmallow = "*"
 apispec = "*"
 python-dotenv = "*"
-pysui = "*"
 flask-session = "*"
 flask-sqlalchemy = "*"
 dataclasses-json = "*"
+pysui-fastcrypto = {path = "./../pysui-fastcrypto/target/wheels/pysui_fastcrypto-0.2.0-cp310-abi3-macosx_11_0_arm64.whl"}
+pysui = {path = "./../pysui"}
 
 [dev-packages]
 pytest = "*"

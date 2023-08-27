@@ -19,6 +19,7 @@ import json
 
 # from http import HTTPStatus
 from operator import is_not
+from typing import Optional
 from flask import Blueprint, session, request, current_app
 
 # from flasgger import swag_from
@@ -98,7 +99,9 @@ def admin_login():
 # Add user account - required admin logged in
 
 
-def _new_user_reg(user_configs: list[InAccountSetup]) -> list[User]:
+def _new_user_reg(
+    user_configs: list[InAccountSetup], defer_commit: Optional[bool] = False
+) -> list[User]:
     """_summary_ Process one or more new user registrations.
 
     :param user_configs: list of one or more new account registrations
@@ -135,7 +138,8 @@ def _new_user_reg(user_configs: list[InAccountSetup]) -> list[User]:
         # Add and commit
         db.session.add(user)
         users.append(user)
-    db.session.commit()
+    if not defer_commit:
+        db.session.commit()
 
     return users
 
@@ -256,7 +260,7 @@ def query_user_accounts(page):
         page_count = user_count
 
     # users = User.query.filter(User.user_role == UserRole.user).all()
-    users = User.query.filter(User.user_role == UserRole.user).paginate(
+    users = User.query.filter(User.user_role != UserRole.admin).paginate(
         page=page,
         per_page=page_count,
         error_out=False,

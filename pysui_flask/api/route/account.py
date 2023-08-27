@@ -178,7 +178,6 @@ def account_inspect_or_validate_transaction():
             return result.to_dict()
         elif perform == "verification":
             _base_constr, error_rpt = txer.verify_transaction()
-            if error_rpt:
-                return {"verification": error_rpt if error_rpt else "success"}
+            return {"verification": error_rpt if error_rpt else "success"}
 
     raise APIError("Missing 'tx_base64' string", ErrorCodes.PYSUI_ERROR_BASE)
