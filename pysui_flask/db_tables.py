@@ -36,6 +36,7 @@ class MultiSigStatus(enum.Enum):
     pending_attestation = 1
     confirmed = 2
     rejected = 3
+    invalid = 4
 
 
 class MsMemberStatus(enum.Enum):
@@ -44,6 +45,7 @@ class MsMemberStatus(enum.Enum):
     request_attestation = 1
     confirmed = 2
     rejected = 3
+    deleted = 4
 
 
 @dataclasses.dataclass

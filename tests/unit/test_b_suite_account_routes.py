@@ -150,7 +150,3 @@ def test_pysui_tx_verification(client: FlaskClient):
 #     assert response.status_code == 200
 #     assert "error" not in response.json
 #     result = response.json
-
-
-def test_add_multisig(client: FlaskClient):
-    """Should be empty."""

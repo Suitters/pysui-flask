@@ -11,7 +11,7 @@
 
 # -*- coding: utf-8 -*-
 
-"""Administration module."""
+"""Administration primary routes module."""
 
 
 from functools import partial
@@ -27,10 +27,16 @@ import marshmallow
 from sqlalchemy import and_
 
 from pysui_flask import db
-from . import admin_api, User, UserRole, UserConfiguration
+from . import (
+    admin_api,
+    User,
+    UserRole,
+    UserConfiguration,
+    admin_login_required,
+)
 import pysui_flask.api.common as cmn
 
-from pysui_flask.api_error import *
+from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.api.schema.account import (
     InAccountSetup,
     OutUser,
@@ -39,11 +45,6 @@ from pysui_flask.api.schema.account import (
 
 from pysui import SuiAddress
 from pysui.sui.sui_crypto import create_new_keypair, keypair_from_keystring
-
-
-def _admin_login_required():
-    if not session.get("admin_logged_in"):
-        raise APIError("Admin must login first", ErrorCodes.LOGIN_REQUIRED)
 
 
 def _content_expected(fields):
@@ -67,7 +68,7 @@ def admin():
 
     A more detailed description of the endpoint
     """
-    _admin_login_required()
+    admin_login_required()
     return {"session": session.sid}
 
 
@@ -92,7 +93,10 @@ def admin_login():
 
 
 def _new_user_reg(
-    user_configs: list[InAccountSetup], defer_commit: Optional[bool] = False
+    *,
+    user_configs: list[InAccountSetup],
+    defer_commit: Optional[bool] = False,
+    for_role: Optional[UserRole] = UserRole.user,
 ) -> list[User]:
     """_summary_ Process one or more new user registrations.
 
@@ -111,7 +115,7 @@ def _new_user_reg(
         # Hash the user password
         user.password = cmn.str_to_hash_hex(user_config.user.password)
         user.user_name_or_email = user_config.user.username
-        user.user_role = UserRole.user
+        user.user_role = for_role
 
         # Create the configuration
         cfg = UserConfiguration()
@@ -139,7 +143,7 @@ def _new_user_reg(
 @admin_api.post("/user_account")
 def new_user_account():
     """Admin registration of new user account."""
-    _admin_login_required()
+    admin_login_required()
     try:
         # Deserialize
         user_in: InAccountSetup = deserialize_account_setup(
@@ -161,7 +165,7 @@ def new_user_account():
             ErrorCodes.USER_ALREADY_EXISTS,
         )
     # Create the new user and configuration
-    user_persist = _new_user_reg([user_in])
+    user_persist = _new_user_reg(user_configs=[user_in])
     return {
         "created": {
             "user_name": user_persist[0].user_name_or_email,
@@ -173,7 +177,7 @@ def new_user_account():
 @admin_api.post("/user_accounts")
 def new_user_accounts():
     """Admin registration of bulk new user account."""
-    _admin_login_required()
+    admin_login_required()
     try:
         # Deserialize
         users_in: InAccountSetup = deserialize_account_setup(
@@ -202,7 +206,7 @@ def new_user_accounts():
     # Create the new user and configuration
     user_result: list = []
 
-    for users_persist in _new_user_reg(users_in):
+    for users_persist in _new_user_reg(user_configs=users_in):
         user_result.append(
             {
                 "user_name": users_persist.user_name_or_email,
@@ -215,7 +219,7 @@ def new_user_accounts():
 @admin_api.get("/user_account/key")
 def query_user_account():
     """Get a user account by account key."""
-    _admin_login_required()
+    admin_login_required()
     q_account = json.loads(request.get_json())
 
     user = User.query.filter(
@@ -240,8 +244,8 @@ def query_user_account():
 @admin_api.get("/user_accounts", defaults={"page": 1})
 @admin_api.get("/user_accounts/<int:page>")
 def query_user_accounts(page):
-    """Fetches all user accounts."""
-    _admin_login_required()
+    """Fetches all user accounts with role user or multisig (not admin)."""
+    admin_login_required()
     page = page
     q_accounts = json.loads(request.get_json())
     # Setup pagination parameters

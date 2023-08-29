@@ -11,20 +11,19 @@
 
 # -*- coding: utf-8 -*-
 
-"""Administrator route package."""
+"""Administration multi-sig routes module."""
 
-from flask import Blueprint, session
-from pysui_flask.db_tables import User, UserRole, UserConfiguration
-from pysui_flask.api_error import APIError, ErrorCodes
-
-
-def admin_login_required():
-    """Verify through session that admin is logged in."""
-    if not session.get("admin_logged_in"):
-        raise APIError("Admin must login first", ErrorCodes.LOGIN_REQUIRED)
+from . import (
+    admin_api,
+    User,
+    UserRole,
+    UserConfiguration,
+    admin_login_required,
+)
 
 
-admin_api = Blueprint("admin", __name__, url_prefix="/admin")
-
-from . import admin
-from . import ms_admin
+@admin_api.post("/multisig_account")
+def new_multisig_account():
+    """Admin registration of new multisig account."""
+    admin_login_required()
+    return {"stub_new_multisig_account": True}

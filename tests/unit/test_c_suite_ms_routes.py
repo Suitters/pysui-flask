@@ -12,3 +12,14 @@
 # -*- coding: utf-8 -*-
 
 """Pytest admin and account multisig routes."""
+
+import json
+from flask.testing import FlaskClient
+
+
+def test_add_multisig(client: FlaskClient):
+    """Should be empty."""
+    response = client.post("/admin/multisig_account", json=json.dumps({}))
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["stub_new_multisig_account"] == True
