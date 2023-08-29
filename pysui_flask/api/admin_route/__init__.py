@@ -11,10 +11,11 @@
 
 # -*- coding: utf-8 -*-
 
-"""pysui-flask init."""
+"""Administrator route package."""
 
-from flask_sqlalchemy import SQLAlchemy
+from flask import Blueprint
+from pysui_flask.db_tables import User, UserRole, UserConfiguration
 
+admin_api = Blueprint("admin", __name__, url_prefix="/admin")
 
-# Global instance of db
-db = SQLAlchemy()
+from . import admin

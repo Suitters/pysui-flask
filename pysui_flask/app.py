@@ -26,8 +26,8 @@ import pysui_flask.config as config
 from pysui_flask.db_tables import *
 
 
-from pysui_flask.api.route.account import account_api
-from pysui_flask.api.route.admin import admin_api
+from .api.admin_route import admin_api
+from .api.account_route import account_api
 from pysui.sui.sui_crypto import create_new_keypair
 
 

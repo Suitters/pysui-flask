@@ -11,10 +11,4 @@
 
 # -*- coding: utf-8 -*-
 
-"""pysui-flask init."""
-
-from flask_sqlalchemy import SQLAlchemy
-
-
-# Global instance of db
-db = SQLAlchemy()
+"""Pytest admin and account multisig routes."""

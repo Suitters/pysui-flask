@@ -20,21 +20,16 @@ import json
 # from http import HTTPStatus
 from operator import is_not
 from typing import Optional
-from flask import Blueprint, session, request, current_app
+from flask import session, request, current_app
 
 # from flasgger import swag_from
 import marshmallow
 from sqlalchemy import and_
 
 from pysui_flask import db
-from . import (
-    CustomJSONEncoder,
-    UserRole,
-    verify_credentials,
-    str_to_hash_hex,
-    User,
-)
-from pysui_flask.db_tables import UserConfiguration
+from . import admin_api, User, UserRole, UserConfiguration
+import pysui_flask.api.common as cmn
+
 from pysui_flask.api_error import *
 from pysui_flask.api.schema.account import (
     InAccountSetup,
@@ -44,9 +39,6 @@ from pysui_flask.api.schema.account import (
 
 from pysui import SuiAddress
 from pysui.sui.sui_crypto import create_new_keypair, keypair_from_keystring
-
-
-admin_api = Blueprint("admin", __name__, url_prefix="/admin")
 
 
 def _admin_login_required():
@@ -86,7 +78,7 @@ def admin_login():
         in_data = json.loads(request.get_json())
         # Get the User object of the admin role
         # Throws exception
-        user = verify_credentials(
+        user = cmn.verify_credentials(
             username=in_data["username"],
             user_password=in_data["password"],
             expected_role=UserRole.admin,
@@ -117,7 +109,7 @@ def _new_user_reg(
         _, kp = create_new_keypair()
         user.account_key = kp.serialize()
         # Hash the user password
-        user.password = str_to_hash_hex(user_config.user.password)
+        user.password = cmn.str_to_hash_hex(user_config.user.password)
         user.user_name_or_email = user_config.user.username
         user.user_role = UserRole.user
 
@@ -230,9 +222,9 @@ def query_user_account():
         User.account_key == q_account["account_key"],
     ).first()
     if user:
-        ujson = json.loads(json.dumps(user, cls=CustomJSONEncoder))
+        ujson = json.loads(json.dumps(user, cls=cmn.CustomJSONEncoder))
         ujson["configuration"] = json.loads(
-            json.dumps(user.configuration, cls=CustomJSONEncoder)
+            json.dumps(user.configuration, cls=cmn.CustomJSONEncoder)
         )
         return {
             "account": OutUser(
@@ -277,9 +269,9 @@ def query_user_accounts(page):
     }
     in_data: list[dict] = []
     for user in users.items:
-        ujson = json.loads(json.dumps(user, cls=CustomJSONEncoder))
+        ujson = json.loads(json.dumps(user, cls=cmn.CustomJSONEncoder))
         cjson = json.loads(
-            json.dumps(user.configuration, cls=CustomJSONEncoder)
+            json.dumps(user.configuration, cls=cmn.CustomJSONEncoder)
         )
         ujson["configuration"] = cjson
         in_data.append(ujson)

@@ -11,10 +11,11 @@
 
 # -*- coding: utf-8 -*-
 
-"""pysui-flask init."""
+"""Account route package."""
 
-from flask_sqlalchemy import SQLAlchemy
+from flask import Blueprint
+from pysui_flask.db_tables import User, UserRole
 
+account_api = Blueprint("account", __name__, url_prefix="/account")
 
-# Global instance of db
-db = SQLAlchemy()
+from . import account

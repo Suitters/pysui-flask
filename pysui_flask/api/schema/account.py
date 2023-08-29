@@ -170,7 +170,7 @@ _in_account_setup = InAccountSetup.schema()
 
 
 def deserialize_account_setup(in_data: Union[dict, list]) -> InAccountSetup:
-    """_summary_ Deserialize inbound account data during user setup.
+    """Deserialize inbound account data during user setup.
 
     It is first passed through marshmallow for validation before
     converted to dataclasses.

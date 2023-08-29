@@ -20,14 +20,11 @@ from flask import Blueprint, session, request
 from pysui_flask.api.schema.account import OutUser
 
 # from flasgger import swag_from
-from . import UserRole, verify_credentials, CustomJSONEncoder
-from pysui_flask.db_tables import User
+from . import account_api, User, UserRole
+import pysui_flask.api.common as cmn
 from pysui_flask.api_error import ErrorCodes, APIError
-import pysui_flask.api.route.common as cmn
 from pysui import SuiRpcResult
 from pysui.sui.sui_txn import SyncTransaction
-
-account_api = Blueprint("account", __name__, url_prefix="/account")
 
 
 def _user_login_required():
@@ -49,9 +46,9 @@ def account():
     """Account root."""
     _user_login_required()
     user = User.query.filter(User.account_key == session["user_key"]).first()
-    ujson = json.loads(json.dumps(user, cls=CustomJSONEncoder))
+    ujson = json.loads(json.dumps(user, cls=cmn.CustomJSONEncoder))
     ujson["configuration"] = json.loads(
-        json.dumps(user.configuration, cls=CustomJSONEncoder)
+        json.dumps(user.configuration, cls=cmn.CustomJSONEncoder)
     )
     return {
         "account": OutUser(partial=True, unknown="exclude", many=False).load(
@@ -65,7 +62,7 @@ def account_login():
     """Verify account login."""
     if not session.get("user_logged_in"):
         in_data = json.loads(request.get_json())
-        user: User = verify_credentials(
+        user: User = cmn.verify_credentials(
             username=in_data["username"],
             user_password=in_data["password"],
             expected_role=UserRole.user,

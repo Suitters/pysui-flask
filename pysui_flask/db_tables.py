@@ -33,7 +33,7 @@ class UserRole(enum.Enum):
 class MultiSigStatus(enum.Enum):
     """Extend as needed."""
 
-    pending_confirmations = 1
+    pending_attestation = 1
     confirmed = 2
     rejected = 3
 
@@ -41,7 +41,7 @@ class MultiSigStatus(enum.Enum):
 class MsMemberStatus(enum.Enum):
     """Extend as needed."""
 
-    request_posted = 1
+    request_attestation = 1
     confirmed = 2
     rejected = 3
 
@@ -74,6 +74,14 @@ class User(db.Model):
         backref="user",
         lazy=True,
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+    # May or may not be a member of multisig
+    multisig_member = db.relationship(
+        "MultiSigMember",
+        backref="user",
+        lazy=True,
+        uselist=True,
         cascade="all, delete-orphan",
     )
     # May or may not have multi-sig join requests
@@ -159,12 +167,16 @@ class MultiSigMember(db.Model):
         primary_key=True,
         autoincrement=True,
     )
-    weight: int = db.Column(db.Integer, nullable=False)
-    position: int = db.Column(db.Integer, nullable=False)
-    # Owner (user) ID of the MultiSig, should be the user address
-    owner_id: str = db.Column(
+    # Owner (user) ID of the MultiSig
+    ms_owner_id: str = db.Column(
         db.String, db.ForeignKey("multi_signature.multisig_id"), nullable=False
     )
+    # Owner (user) ID of the account
+    owner_id: str = db.Column(
+        db.String, db.ForeignKey("user.account_key"), nullable=False
+    )
+    weight: int = db.Column(db.Integer, nullable=False)
+    position: int = db.Column(db.Integer, nullable=False)
     status: int = db.Column(db.Enum(MsMemberStatus), nullable=False)
 
 
@@ -182,9 +194,14 @@ class MultiSigRequests(db.Model):
         primary_key=True,
         autoincrement=True,
     )
+    # The user/account the request is for
     member_id: str = db.Column(
         db.String, db.ForeignKey("user.account_key"), nullable=False
     )
+    # This is the account that made the request
+    membership_key: str = db.Column(db.String(44), nullable=False)
+    # This is the challenge phrase requiring signing
+    attestation_phrase: str = db.Column(db.String(64), nullable=False)
 
 
 @dataclasses.dataclass
@@ -201,3 +218,4 @@ class SignatureRequests(db.Model):
     signing_id: str = db.Column(
         db.String, db.ForeignKey("user.account_key"), nullable=False
     )
+    # This is the digest that requires signing
