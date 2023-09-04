@@ -142,3 +142,26 @@ class CustomJSONEncoder(json.JSONEncoder):  # <<-- Add this custom encoder
         if isinstance(o, enum.Enum):
             return o.value
         return super().default(o)
+
+
+def flatten_users(accounts: list[User]) -> Union[list[User], APIError]:
+    """Resolves single and multisig users base on account_ids.
+
+    :param account_ids: List of account_ids
+    :type account_ids: list[str]
+    :raises APIError: If account id does not resolve to user
+    :return: List of resolved Users
+    :rtype: Union[list[User], APIError]
+    """
+    result_list: list[User] = []
+    for account in accounts:
+        if account.user_role == UserRole.user:
+            result_list.append(account)
+        elif account.user_role == UserRole.multisig:
+            pass
+        else:
+            raise APIError(
+                f"Invalid role for account: {account.user_role.value}",
+                ErrorCodes.INVALID_ACCOUNT_ROLE,
+            )
+    return result_list

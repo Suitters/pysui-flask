@@ -21,7 +21,15 @@ from pysui_flask import db
 from pysui_flask.api.schema.account import OutUser, validate_public_key
 
 # from flasgger import swag_from
-from . import account_api, User, UserRole
+from . import (
+    account_api,
+    User,
+    UserRole,
+    SignerStatus,
+    SignatureStatus,
+    SignatureTracking,
+    SignatureRequest,
+)
 import pysui_flask.api.common as cmn
 from pysui_flask.api_error import ErrorCodes, APIError
 from pysui import SuiRpcResult, SuiAddress
@@ -31,6 +39,27 @@ from pysui.sui.sui_txn import SyncTransaction
 def _user_login_required():
     if not session.get("user_logged_in"):
         raise APIError("User must login first", ErrorCodes.LOGIN_REQUIRED)
+
+
+def post_signature_request(to_accounts: list[User], base64_txbytes: str):
+    """."""
+    tracker = SignatureTracking()
+    tracker.status = SignatureStatus.pending_signers
+    tracker.expected_signatures = len(to_accounts)
+    tracker.completed_signatures = 0
+    db.session.add(tracker)
+    db.session.flush()
+    for account in to_accounts:
+        sig_r = SignatureRequest()
+        sig_r.from_account = account.account_key
+        sig_r.tx_byte_string = base64_txbytes
+        sig_r.status = SignerStatus.pending
+        sig_r.signing_tracker = tracker.id
+        # Add to the user table
+        account.sign_requests.append(sig_r)
+        # Add to the session
+        db.session.add(sig_r)
+    db.session.commit()
 
 
 @account_api.get("/")
@@ -214,6 +243,9 @@ def account_execute_transaction():
             )
             # This is temporary
             # Post to user sign requests
+            # Flatten accounts to post to
+            post_signature_request(cmn.flatten_users(signers), txdata_to_sign)
+            # Post txdata to request table
             mlen = len(txdata_to_sign)
             return {"success": txdata_to_sign}
         except Exception as exc:

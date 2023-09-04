@@ -29,6 +29,7 @@ class ErrorCodes(IntEnum):
     REQUEST_CONTENT_ERROR: int = -20
     USER_ALREADY_EXISTS: int = -30
     ACCOUNT_NOT_FOUND: int = -40
+    INVALID_ACCOUNT_ROLE: int = -50
     # pysui errors
     PYSUI_ERROR_BASE: int = -1000
     PYSUI_NO_PUBLIC_KEY = -1001

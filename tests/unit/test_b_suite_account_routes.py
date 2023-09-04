@@ -57,6 +57,32 @@ def test_no_ops(client: FlaskClient):
     assert response.status_code == 200
 
 
+def test_set_publickey(client: FlaskClient):
+    """Test account with no public key can't execute those that require."""
+    response = client.get(
+        "/account/login", json=json.dumps(BAD_OPS_USER_LOGIN_CREDS)
+    )
+    assert response.status_code == 200
+    pubkey_wallet = {
+        "public_key": {
+            "key_scheme": "ED25519",
+            "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
+        }
+    }
+    response = client.post(
+        "/account/public_key", json=json.dumps(pubkey_wallet)
+    )
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["user_update"]
+    response = client.get("/account/gas", json=json.dumps({"all": False}))
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["data"][0]
+    response = client.get("/account/logoff", json=json.dumps({}))
+    assert response.status_code == 200
+
+
 # This session is used through end of module
 def test_good_login_content(client: FlaskClient):
     """Validate good account login credentials."""
@@ -191,13 +217,12 @@ def test_pysui_tx_execute(client: FlaskClient):
     result = response.json
 
 
-# def test_has_signing_requests(client: FlaskClient):
-#     """."""
-#     """Should not be empty."""
-#     response = client.get(
-#         "/account/signing_requests",
-#         json=json.dumps({}),
-#     )
-#     assert response.status_code == 200
-#     result = response.json
-#     assert result["result"]["needs_signing"]
+def test_has_signing_requests(client: FlaskClient):
+    """Should not be empty."""
+    response = client.get(
+        "/account/signing_requests",
+        json=json.dumps({}),
+    )
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["needs_signing"]

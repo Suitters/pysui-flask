@@ -41,8 +41,9 @@ class SignatureStatus(enum.Enum):
 class SignerStatus(enum.Enum):
     """Extend as needed."""
 
-    signed = 1
-    rejected = 2
+    pending = 1
+    signed = 2
+    rejected = 3
 
 
 class MultiSigStatus(enum.Enum):
@@ -232,10 +233,11 @@ class SignatureTracking(db.Model):
         autoincrement=True,
     )
 
-    # How many signatures expected may expand with multisig
-    signatures_expected: int = db.Column(db.Integer, nullable=False)
+    # How many signatures
+    expected_signatures: int = db.Column(db.Integer, nullable=False)
     # How many signatures received
-    signatures_received: int = db.Column(db.Integer, nullable=False)
+    completed_signatures: int = db.Column(db.Integer, nullable=False)
+    # Accumulated status
     status: int = db.Column(db.Enum(SignatureStatus), nullable=False)
 
 
