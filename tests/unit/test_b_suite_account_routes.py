@@ -212,12 +212,13 @@ def test_pysui_tx_execute(client: FlaskClient):
         ).decode()
     }
     response = client.post("/account/pysui_txn", json=json.dumps(inspect_dict))
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert "error" not in response.json
     result = response.json
+    assert len(result["result"]["accounts_posted"]) == 1
 
 
-def test_has_signing_requests(client: FlaskClient):
+def test_signing_and_execute_requests(client: FlaskClient):
     """Should not be empty."""
     response = client.get(
         "/account/signing_requests",
@@ -225,4 +226,5 @@ def test_has_signing_requests(client: FlaskClient):
     )
     assert response.status_code == 200
     result = response.json
-    assert result["result"]["needs_signing"]
+    assert len(result["result"]["needs_signing"]) == 1
+    keystr = "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"

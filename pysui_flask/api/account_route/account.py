@@ -41,8 +41,11 @@ def _user_login_required():
         raise APIError("User must login first", ErrorCodes.LOGIN_REQUIRED)
 
 
-def post_signature_request(to_accounts: list[User], base64_txbytes: str):
+def post_signature_request(
+    from_account: str, to_accounts: list[User], base64_txbytes: str
+) -> list[str]:
     """."""
+    accounts_notified: list[str] = []
     tracker = SignatureTracking()
     tracker.status = SignatureStatus.pending_signers
     tracker.expected_signatures = len(to_accounts)
@@ -51,15 +54,23 @@ def post_signature_request(to_accounts: list[User], base64_txbytes: str):
     db.session.flush()
     for account in to_accounts:
         sig_r = SignatureRequest()
-        sig_r.from_account = account.account_key
+        # Who is requesting this
+        sig_r.from_account = from_account
+        # For what accounts public key
+        sig_r.for_public_key = account.configuration.public_key
+        # What is needed to sign
         sig_r.tx_byte_string = base64_txbytes
-        sig_r.status = SignerStatus.pending
+        # Master tracker
         sig_r.signing_tracker = tracker.id
+        # Pending signature
+        sig_r.status = SignerStatus.pending
         # Add to the user table
         account.sign_requests.append(sig_r)
         # Add to the session
+        accounts_notified.append(account.account_key)
         db.session.add(sig_r)
     db.session.commit()
+    return accounts_notified
 
 
 @account_api.get("/")
@@ -244,10 +255,11 @@ def account_execute_transaction():
             # This is temporary
             # Post to user sign requests
             # Flatten accounts to post to
-            post_signature_request(cmn.flatten_users(signers), txdata_to_sign)
+            requests_submitted = post_signature_request(
+                session["user_key"], cmn.flatten_users(signers), txdata_to_sign
+            )
             # Post txdata to request table
-            mlen = len(txdata_to_sign)
-            return {"success": txdata_to_sign}
+            return {"accounts_posted": requests_submitted}, 201
         except Exception as exc:
             raise APIError(
                 f"Exception {exc.args[0]}", ErrorCodes.CONTENT_TYPE_ERROR

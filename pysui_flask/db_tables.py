@@ -262,6 +262,7 @@ class SignatureRequest(db.Model):
         nullable=False,
     )
     from_account: str = db.Column(db.String(44), nullable=False)
+    for_public_key: str = db.Column(db.String(44), nullable=False)
     # This is the byte string that requires signing
     tx_byte_string: str = db.Column(db.String(200000), nullable=False)
     status: int = db.Column(db.Enum(SignerStatus), nullable=False)
