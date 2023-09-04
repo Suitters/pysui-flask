@@ -30,6 +30,21 @@ class UserRole(enum.Enum):
     multisig = 3
 
 
+class SignatureStatus(enum.Enum):
+    """Extend as needed."""
+
+    pending_signers = 1
+    partially_signed = 2
+    rejected = 3
+
+
+class SignerStatus(enum.Enum):
+    """Extend as needed."""
+
+    signed = 1
+    rejected = 2
+
+
 class MultiSigStatus(enum.Enum):
     """Extend as needed."""
 
@@ -88,7 +103,7 @@ class User(db.Model):
     )
     # May or may not have multi-sig join requests
     multisig_requests = db.relationship(
-        "MultiSigRequests",
+        "MultiSigRequest",
         backref="user",
         lazy=True,
         uselist=True,
@@ -96,7 +111,7 @@ class User(db.Model):
     )
     # May or may not have signing requests
     sign_requests = db.relationship(
-        "SignatureRequests",
+        "SignatureRequest",
         backref="user",
         lazy=True,
         uselist=True,
@@ -123,10 +138,9 @@ class UserConfiguration(db.Model):
     rpc_url: str = db.Column(db.String(254), nullable=False)
     ws_url: str = db.Column(db.String(254), nullable=True)
     # Addresses and keys
-    # May be nullable if role of primary owner is MultiSig type
-    # The active_address gets completed when a multisig is confirmed
+    # The active_address gets set when a multisig is built
+    public_key: str = db.Column(db.String(44), nullable=True)
     active_address: str = db.Column(db.String(66), nullable=True)
-    private_key: str = db.Column(db.String(44), nullable=True)
 
 
 # Multi-Sig
@@ -186,7 +200,7 @@ class MultiSigMember(db.Model):
 
 
 @dataclasses.dataclass
-class MultiSigRequests(db.Model):
+class MultiSigRequest(db.Model):
     """MultiSignature base member requesst queue."""
 
     id: int = db.Column(
@@ -207,8 +221,27 @@ class MultiSigRequests(db.Model):
 
 
 @dataclasses.dataclass
-class SignatureRequests(db.Model):
-    """Signature requesst queue."""
+class SignatureTracking(db.Model):
+    """Signature tracking table."""
+
+    id: int = db.Column(
+        "sig_track_id",
+        db.Integer,
+        nullable=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    # How many signatures expected may expand with multisig
+    signatures_expected: int = db.Column(db.Integer, nullable=False)
+    # How many signatures received
+    signatures_received: int = db.Column(db.Integer, nullable=False)
+    status: int = db.Column(db.Enum(SignatureStatus), nullable=False)
+
+
+@dataclasses.dataclass
+class SignatureRequest(db.Model):
+    """Signature request queue."""
 
     id: int = db.Column(
         "sig_request_id",
@@ -217,7 +250,16 @@ class SignatureRequests(db.Model):
         primary_key=True,
         autoincrement=True,
     )
+    # This is the intended signer account
     signing_id: str = db.Column(
         db.String, db.ForeignKey("user.account_key"), nullable=False
     )
-    # This is the digest that requires signing
+    # This is backref to signtracker
+    signing_tracker: str = db.Column(
+        db.Integer,
+        nullable=False,
+    )
+    from_account: str = db.Column(db.String(44), nullable=False)
+    # This is the byte string that requires signing
+    tx_byte_string: str = db.Column(db.String(200000), nullable=False)
+    status: int = db.Column(db.Enum(SignerStatus), nullable=False)

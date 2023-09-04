@@ -12,7 +12,7 @@ python-dotenv = "*"
 flask-session = "*"
 flask-sqlalchemy = "*"
 dataclasses-json = "*"
-pysui = "*"
+pysui = {path = "./../pysui"}
 
 [dev-packages]
 pytest = "*"

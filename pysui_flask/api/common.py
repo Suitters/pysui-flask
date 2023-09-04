@@ -18,23 +18,29 @@ import dataclasses
 from datetime import datetime
 import json
 import hashlib
-from typing import Union
+from typing import Optional, Union
 from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.db_tables import User, UserRole
-from pysui import SyncClient, SuiConfig
+from pysui import SyncClient, SuiConfig, SuiAddress
 from pysui.sui.sui_types.address import valid_sui_address
 from pysui.sui.sui_txn import SyncTransaction
 
 
-def client_for_account(account_key: str) -> SyncClient:
+def client_for_account(
+    account_key: str, user: Optional[User] = None
+) -> SyncClient:
     """Construct a client from a user account configuration."""
-    user: User = User.query.filter(User.account_key == account_key).one()
+    user = user or User.query.filter(User.account_key == account_key).one()
+    # user: User = User.query.filter(User.account_key == account_key).one()
     if user:
         try:
             cfg = SuiConfig.user_config(
                 rpc_url=user.configuration.rpc_url,
-                prv_keys=[user.configuration.private_key],
+                prv_keys=[],
                 ws_url=user.configuration.ws_url,
+            )
+            cfg.set_active_address(
+                SuiAddress(user.configuration.active_address)
             )
             return SyncClient(cfg)
         except Exception as exc:
@@ -42,6 +48,22 @@ def client_for_account(account_key: str) -> SyncClient:
                 exc.args[0],
                 ErrorCodes.PYSUI_ERROR_BASE,
             )
+    raise APIError(
+        f"Account with key: {account_key} not known",
+        ErrorCodes.ACCOUNT_NOT_FOUND,
+    )
+
+
+def client_for_account_action(account_key: str) -> tuple[SyncClient, User]:
+    """."""
+    user: User = User.query.filter(User.account_key == account_key).one()
+    if user:
+        if not user.configuration.active_address:
+            raise APIError(
+                f"Account {account_key} does not have public_key registered.",
+                ErrorCodes.PYSUI_NO_PUBLIC_KEY,
+            )
+        return client_for_account(account_key, user), user
     raise APIError(
         f"Account with key: {account_key} not known",
         ErrorCodes.ACCOUNT_NOT_FOUND,

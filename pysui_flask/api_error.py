@@ -15,6 +15,7 @@
 """Base Exception."""
 
 from enum import IntEnum
+from typing import Optional
 
 
 # Error codes
@@ -30,6 +31,7 @@ class ErrorCodes(IntEnum):
     ACCOUNT_NOT_FOUND: int = -40
     # pysui errors
     PYSUI_ERROR_BASE: int = -1000
+    PYSUI_NO_PUBLIC_KEY = -1001
     # sui errors
     SUI_ERROR_BASE: int = -2000
 
@@ -39,7 +41,12 @@ class APIError(Exception):
 
     _status_code = 200
 
-    def __init__(self, message, error_code=None, payload=None):
+    def __init__(
+        self,
+        message: str,
+        error_code: Optional[ErrorCodes] = None,
+        payload: Optional[dict] = None,
+    ):
         """Create the exception."""
         super().__init__()
         self.message = message
@@ -51,5 +58,5 @@ class APIError(Exception):
         """Coerce to dict."""
         rv = dict(self.payload or ())
         rv["error"] = self.message
-        rv["error_code"] = self.error_code
+        rv["error_code"] = self.error_code.value
         return rv

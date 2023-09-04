@@ -125,9 +125,9 @@ def _do_good(name_tag: int) -> dict:
         "user": {"username": "FrankC0", "password": "Oxnard Gimble"},
         "config": {
             # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
-            "private_key": {
+            "public_key": {
                 "key_scheme": "ED25519",
-                "wallet_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
             },
             # "environment": "devnet",
             "urls": {
@@ -164,7 +164,11 @@ def test_admin_create_account_no_errors(client: FlaskClient):
     assert result["result"]["account"]["user_name"] == "FrankC01"
     assert result["result"]["account"]["user_role"] == 2
 
-    bulk: list[dict] = [_do_good(x) for x in range(2, 9)]
+    # This creates users 2 - 9 (seven more)
+    bulk: list[dict] = [_do_good(x) for x in range(2, 10)]
+    # Make the last one no public key
+    bulk[7]["config"]["public_key"] = None
+
     response = client.post("/admin/user_accounts", json=json.dumps(bulk))
     assert response.status_code == 201
     result = response.json

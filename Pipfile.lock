@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "ea843c1705972828bf799b025cf0c24bc78329999b1c7925e061932384f7ca03"
+            "sha256": "87022bde6fe1f7315040fe086896a775c5bb81f0a50d6f2e37b6cd6e8f49c094"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -18,11 +18,11 @@
     "default": {
         "anyio": {
             "hashes": [
-                "sha256:48d53f0b141f5757c38d648309e6fe254857fae092d67f938fa248d7c0f36804",
-                "sha256:596b09c520820e7eed961ddc889540972f92d5e8fcb081117fc054c409df34ae"
+                "sha256:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f",
+                "sha256:f7ed51751b2c2add651e5747c891b47e26d2a21be5d32d9311dfe9692f3e5d7a"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==4.0.0rc1"
+            "version": "==4.0.0"
         },
         "apispec": {
             "hashes": [
@@ -328,11 +328,8 @@
             "version": "==23.1"
         },
         "pysui": {
-            "hashes": [
-                "sha256:d2b468272e733c63bfb5b5e036994788ea2b98f760191939f04b0818deb2b001"
-            ],
-            "index": "pypi",
-            "version": "==0.34.0"
+            "path": "./../pysui",
+            "version": "==0.35.0"
         },
         "pysui-fastcrypto": {
             "hashes": [
@@ -815,11 +812,11 @@
         },
         "build": {
             "hashes": [
-                "sha256:af266720050a66c893a6096a2f410989eeac74ff9a68ba194b3f6473e8e26171",
-                "sha256:d5b71264afdb5951d6704482aac78de887c80691c52b88a9ad195983ca2c9269"
+                "sha256:49a60f212df4d9925727c2118e1cbe3abf30b393eff7d0e7287d2170eb36844d",
+                "sha256:f4c7b45e70e2c345e673902253d435a9a7729ff09ab574924420cf120c60bcc9"
             ],
             "index": "pypi",
-            "version": "==0.10.0"
+            "version": "==1.0.0"
         },
         "certifi": {
             "hashes": [
@@ -1217,11 +1214,11 @@
         },
         "pytest": {
             "hashes": [
-                "sha256:78bf16451a2eb8c7a2ea98e32dc119fd2aa758f1d5d66dbf0a59d69a3969df32",
-                "sha256:b4bf8c45bd59934ed84001ad51e11b4ee40d40a1229d2c79f9c592b0a3f6bd8a"
+                "sha256:2f2301e797521b23e4d2585a0a3d7b5e50fdddaaf7e7d6773ea26ddb17c213ab",
+                "sha256:460c9a59b14e27c602eb5ece2e47bec99dc5fc5f6513cf924a7d03a578991b1f"
             ],
             "index": "pypi",
-            "version": "==7.4.0"
+            "version": "==7.4.1"
         },
         "readme-renderer": {
             "hashes": [

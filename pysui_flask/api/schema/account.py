@@ -16,10 +16,19 @@
 
 import base64
 import binascii
-from dataclasses import dataclass, field
+import hashlib
+from dataclasses import dataclass
 from typing import Optional, Union
-from dataclasses_json import dataclass_json, Undefined
-from marshmallow import Schema, fields, validate, pre_load, exceptions
+from dataclasses_json import dataclass_json
+from marshmallow import (
+    Schema,
+    fields,
+    validate,
+    pre_load,
+    exceptions,
+    post_load,
+)
+from pysui import SuiAddress
 from pysui.abstracts.client_keypair import SignatureScheme
 from pysui.sui.sui_constants import SUI_HEX_ADDRESS_STRING_LEN
 
@@ -62,7 +71,7 @@ class ExplicitUri(Schema):
     )
 
 
-def _key_for_wallet_key(*, wallet_key: str, key_scheme: str) -> str:
+def _private_key_for_wallet_key(*, wallet_key: str, key_scheme: str) -> str:
     """Validate and convert wallet key to Sui keystring."""
     if len(wallet_key) != SUI_HEX_ADDRESS_STRING_LEN:
         exceptions.ValidationError(
@@ -82,10 +91,70 @@ def _key_for_wallet_key(*, wallet_key: str, key_scheme: str) -> str:
     return base64.b64encode(keybytes).decode()
 
 
+def _public_key_for_base64(
+    *, wallet_key: str, key_scheme: str
+) -> tuple[str, str]:
+    """Validate and convert to public key Sui string."""
+    pub_key_bytes = base64.b64decode(wallet_key)
+    key_scheme = key_scheme.upper()
+    if key_scheme == "ED25519":
+        if len(pub_key_bytes) == 32:
+            ba = bytearray([0])
+            ba.extend(pub_key_bytes)
+            return (
+                base64.b64encode(ba).decode(),
+                SuiAddress.from_bytes(ba).address,
+            )
+    elif key_scheme == "SECP256K1" or key_scheme == "SECP256R1":
+        if len(pub_key_bytes) == 33:
+            ba = bytearray([1])
+            ba.extend(pub_key_bytes)
+            return (
+                base64.b64encode(ba).decode(),
+                SuiAddress.from_bytes(ba).address,
+            )
+    elif key_scheme == "SECP256R1":
+        if len(pub_key_bytes) == 33:
+            ba = bytearray([2])
+            ba.extend(pub_key_bytes)
+            return (
+                base64.b64encode(ba).decode(),
+                SuiAddress.from_bytes(ba).address,
+            )
+    exceptions.ValidationError(
+        f"key_scheme {key_scheme} not valid keytype for account"
+    )
+
+
+def validate_public_key(in_pubkey) -> tuple[str, str]:
+    """Validate public key."""
+    if isinstance(in_pubkey, dict):
+        base_keys = frozenset({"wallet_key", "key_scheme"})
+        if not in_pubkey.keys() >= base_keys:
+            raise ValueError(
+                f"Wallet public key requires 'wallet_key' and 'key_scheme'"
+            )
+        pk, addy = _public_key_for_base64(**in_pubkey)
+    elif isinstance(in_pubkey, str):
+        if len(in_pubkey) == 44:
+            pk = in_pubkey
+            addy = SuiAddress.from_bytes(base64.b64decode(pk))
+    return pk, addy
+
+
 class Config(Schema):
     """Configuration setting when adding new account."""
 
-    private_key = fields.Str(required=True, validate=validate.Length(equal=44))
+    public_key = fields.Str(
+        required=False,
+        load_default="",
+        # validate=validate.Length(equal=44),
+    )
+    address = fields.Str(
+        required=False,
+        load_default="",
+        # validate=validate.Length(equal=66)
+    )
     urls = fields.Nested(ExplicitUri, many=False, required=True)
 
     @pre_load
@@ -100,15 +169,35 @@ class Config(Schema):
                 in_bound["urls"] = SUI_STANDARD_URI.get(
                     in_bound.pop("environment")
                 )
-            if isinstance(in_bound["private_key"], dict):
-                base_keys = frozenset({"wallet_key", "key_scheme"})
-                if not in_bound["private_key"].keys() >= base_keys:
-                    raise exceptions.ValidationError(
-                        f"Wallet key requires 'wallet_key' and 'key_scheme'"
-                    )
-                in_bound["private_key"] = _key_for_wallet_key(
-                    **in_bound["private_key"]
-                )
+            if "public_key" in in_bound and in_bound["public_key"]:
+                try:
+                    pk, addy = validate_public_key(in_bound["public_key"])
+                    in_bound["address"] = addy
+                    in_bound["public_key"] = pk
+                except Exception as exc:
+                    raise exceptions.ValidationError(exc.args[0])
+                # if isinstance(in_bound["public_key"], dict):
+                #     base_keys = frozenset({"wallet_key", "key_scheme"})
+                #     if not in_bound["public_key"].keys() >= base_keys:
+                #         raise exceptions.ValidationError(
+                #             f"Wallet key requires 'wallet_key' and 'key_scheme'"
+                #         )
+                #     pk, addy = _public_key_for_base64(**in_bound["public_key"])
+                #     in_bound["address"] = addy
+                #     in_bound["public_key"] = pk
+                # elif isinstance(in_bound["public_key"], str):
+                #     if len(in_bound["public_key"]) == 44:
+                #         in_bound["address"] = SuiAddress.from_bytes(
+                #             base64.b64decode(in_bound["public_key"])
+                #         )
+                #     else:
+                #         raise exceptions.ValidationError(
+                #             f"Config expects a map with data found {in_bound}"
+                #         )
+            else:
+                in_bound["address"] = ""
+                in_bound["public_key"] = ""
+
         else:
             raise exceptions.ValidationError(
                 f"Config expects a map with data found {in_bound}"
@@ -127,6 +216,56 @@ class AccountSetup(Schema):
 # For performance
 _setup_schema = AccountSetup(many=False)
 _setup_schemas = AccountSetup(many=True)
+
+
+class MultiSigMember(Schema):
+    """Member list of multisig."""
+
+    account_key = fields.Str(required=True, validate=validate.Length(equal=66))
+    weight = fields.Int(
+        required=True, strict=True, validate=validate.Range(min=1, max=255)
+    )
+
+
+class MultiSig(Schema):
+    """Member list of multisig."""
+
+    members = fields.List(fields.Nested(MultiSigMember), required=True)
+    # members = fields.List(fields.Str, required=True)
+    threshold = fields.Int(
+        required=True, strict=True, validate=validate.Range(min=1, max=2550)
+    )
+    requires_attestation = fields.Bool(required=True)
+
+    @post_load
+    def member_check(self, item, many, **kwargs):
+        """."""
+        if len(item["members"]) > 10:
+            raise exceptions.ValidationError(
+                f"Max 10 multisig members allowed, found {len(item['members'])}"
+            )
+        if len(item["members"]) < 2:
+            raise exceptions.ValidationError(
+                f"Need at least 2 multisig members required, found {len(item['members'])}"
+            )
+
+        return item
+
+
+class MultiSigSetup(Schema):
+    """Primary wrapper for account setup."""
+
+    # The msig user info
+    user = fields.Nested(UserIn, many=False, required=True)
+    # the msig config
+    config = fields.Nested(Config, many=False, required=True)
+    # the msig
+    multi_sig = fields.Nested(MultiSig, many=False, required=True)
+
+
+# For performance
+_ms_setup_schema = MultiSigSetup(many=False)
+_ms_setup_schemas = MultiSigSetup(many=True)
 
 
 @dataclass_json
@@ -152,8 +291,9 @@ class InUri:
 class InConfig:
     """Configuration setting dataclass for new account."""
 
-    private_key: str
     urls: InUri
+    public_key: Optional[str] = ""
+    address: Optional[str] = ""
 
 
 @dataclass_json
@@ -167,6 +307,16 @@ class InAccountSetup:
 
 # For performance, build the schema for re-use
 _in_account_setup = InAccountSetup.schema()
+
+
+@dataclass_json
+@dataclass
+class InMultiSigSetup:
+    """Container for new user account setup."""
+
+    user: InUser
+    config: InConfig
+    ms_members: str
 
 
 def deserialize_account_setup(in_data: Union[dict, list]) -> InAccountSetup:
@@ -191,6 +341,7 @@ class OutConfig(Schema):
     """Configuration setting dataclass for new account."""
 
     rpc_url = fields.Str()
+    public_key = fields.Str()
     active_address = fields.Str()
     ws_url = fields.Str()
 
@@ -215,11 +366,104 @@ if __name__ == "__main__":
     faux_user = {
         "user_name_or_email": "a",
         "account_key": "b",
-        "user_role": "c",
+        "user_role": 2,
         "creation_date": "d",
         "configuration": faux_config,
     }
     res = OutConfig(partial=True, unknown="exclude").load(faux_config)
     # print(res)
     res = OutUser(partial=True, unknown="exclude").load(faux_user)
+    # print(res)
+    good_content = {
+        "user": {"username": "FrankC01", "password": "Oxnard Gimble"},
+        "config": {
+            # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
+            # "public_key": {
+            #     "key_scheme": "ED25519",
+            #     "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
+            # },
+            "public_key": None,
+            # "environment": "devnet",
+            "urls": {
+                "rpc_url": "https://fullnode.devnet.sui.io:443",
+                "ws_url": "https://fullnode.devnet.sui.io:443",
+            },
+        },
+    }
+    # res = _setup_schema.load(good_content)
+    try:
+        res = deserialize_account_setup(good_content)
+        print(res)
+    except Exception as ev:
+        print(ev.args)
+    # print(res)
+    good_msig_content = {
+        "user": {"username": "FrankC01", "password": "Oxnard Gimble"},
+        "config": {
+            # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
+            "public_key": {
+                "key_scheme": "ED25519",
+                "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
+            },
+            # "environment": "devnet",
+            "urls": {
+                "rpc_url": "https://fullnode.devnet.sui.io:443",
+                "ws_url": "https://fullnode.devnet.sui.io:443",
+            },
+        },
+        "multi_sig": {
+            "requires_attestation": False,
+            "members": [
+                # "goo",
+                # "foo",
+                # "bar"
+                {
+                    "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                    "weight": 1,
+                },
+                {
+                    "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                    "weight": 2,
+                },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 3,
+                # },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 4,
+                # },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 5,
+                # },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 6,
+                # },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 7,
+                # },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 8,
+                # },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 9,
+                # },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 10,
+                # },
+                # {
+                #     "account_key": "0x850fc50bde635f10c610c37533b40f4383e8f355f9eb79d34ebc77583fac8ca5",
+                #     "weight": 11,
+                # },
+            ],
+            "threshold": 10,
+        },
+    }
+    res = _ms_setup_schema.load(good_msig_content)
     print(res)

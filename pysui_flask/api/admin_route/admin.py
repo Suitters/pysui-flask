@@ -13,7 +13,7 @@
 
 """Administration primary routes module."""
 
-
+import base64
 from functools import partial
 import json
 
@@ -44,7 +44,7 @@ from pysui_flask.api.schema.account import (
 )
 
 from pysui import SuiAddress
-from pysui.sui.sui_crypto import create_new_keypair, keypair_from_keystring
+from pysui.sui.sui_crypto import create_new_keypair, SuiPublicKey
 
 
 def _content_expected(fields):
@@ -121,14 +121,8 @@ def _new_user_reg(
         cfg = UserConfiguration()
         cfg.rpc_url = user_config.config.urls.rpc_url
         cfg.ws_url = user_config.config.urls.ws_url
-        cfg.private_key = user_config.config.private_key
-        # Get the keypair from private seed
-        kp = keypair_from_keystring(user_config.config.private_key)
-        # Convert to address
-        cfg.active_address = SuiAddress.from_bytes(
-            kp.public_key.scheme_and_key()
-        ).address
-
+        cfg.public_key = user_config.config.public_key
+        cfg.active_address = user_config.config.address
         # Create the relationship
         user.configuration = cfg
         # Add and commit
