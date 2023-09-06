@@ -17,10 +17,11 @@ from flask import Blueprint
 from pysui_flask.db_tables import (
     User,
     UserRole,
+    SigningAs,
     SignerStatus,
     SignatureStatus,
     SignatureRequest,
-    SignatureTracking,
+    SignatureTrack,
 )
 
 account_api = Blueprint("account", __name__, url_prefix="/account")

@@ -25,9 +25,10 @@ from . import (
     account_api,
     User,
     UserRole,
+    SigningAs,
     SignerStatus,
     SignatureStatus,
-    SignatureTracking,
+    SignatureTrack,
     SignatureRequest,
 )
 import pysui_flask.api.common as cmn
@@ -42,33 +43,33 @@ def _user_login_required():
 
 
 def post_signature_request(
-    from_account: str, to_accounts: list[User], base64_txbytes: str
+    from_account: User,
+    to_accounts: list[tuple[SigningAs, User]],
+    base64_txbytes: str,
 ) -> list[str]:
     """."""
     accounts_notified: list[str] = []
-    tracker = SignatureTracking()
+    tracker = SignatureTrack()
+    tracker.tx_bytes = base64_txbytes
     tracker.status = SignatureStatus.pending_signers
-    tracker.expected_signatures = len(to_accounts)
-    tracker.completed_signatures = 0
-    db.session.add(tracker)
-    db.session.flush()
-    for account in to_accounts:
+    sigs: list[SignatureRequest] = []
+    for sign_as, account in to_accounts:
         sig_r = SignatureRequest()
-        # Who is requesting this
-        sig_r.from_account = from_account
-        # For what accounts public key
-        sig_r.for_public_key = account.configuration.public_key
-        # What is needed to sign
-        sig_r.tx_byte_string = base64_txbytes
-        # Master tracker
-        sig_r.signing_tracker = tracker.id
-        # Pending signature
+        # Who is indtended to sign (can include the originator as sender)
+        sig_r.signer_account_key = account.account_key
+        # Public key of signer
+        sig_r.signer_public_key = account.configuration.public_key
+        # TODO: Are they sender or sponsoring
+        sig_r.signing_as = sign_as
+        # These are control fields
         sig_r.status = SignerStatus.pending
-        # Add to the user table
-        account.sign_requests.append(sig_r)
-        # Add to the session
+        sig_r.signature = ""
+        tracker.requests.append(sig_r)
+        # sigs.append(sig_r)
         accounts_notified.append(account.account_key)
-        db.session.add(sig_r)
+
+    # tracker.requests = sigs
+    from_account.sign_track.append(tracker)
     db.session.commit()
     return accounts_notified
 
@@ -216,7 +217,7 @@ def account_execute_transaction():
     """Deserialize and execute builder construct."""
     _user_login_required()
     client, user = cmn.client_for_account_action(session["user_key"])
-    signers: list[User] = [user]
+    signers = {"sender": user, "sponsor": None}
     in_data = json.loads(request.get_json())
     tx_builder = in_data.get("tx_base64")
     verify = in_data.get("run_verification", False)
@@ -241,7 +242,7 @@ def account_execute_transaction():
                         ErrorCodes.ACCOUNT_NOT_FOUND,
                     )
                 else:
-                    signers.append(sponsor)
+                    signers["sponsor"] = sponsor
             gas_object = (
                 gas_object
                 if (gas_object and cmn.validate_object_id(gas_object, True))
@@ -256,7 +257,7 @@ def account_execute_transaction():
             # Post to user sign requests
             # Flatten accounts to post to
             requests_submitted = post_signature_request(
-                session["user_key"], cmn.flatten_users(signers), txdata_to_sign
+                user, cmn.flatten_users(signers), txdata_to_sign
             )
             # Post txdata to request table
             return {"accounts_posted": requests_submitted}, 201
@@ -271,14 +272,34 @@ def account_execute_transaction():
 def get_signing_requests():
     """."""
     _user_login_required()
+    requests: list[SignatureRequest] = SignatureRequest.query.filter(
+        SignatureRequest.signer_account_key == session["user_key"]
+    ).all()
+    # return {"total_requests": len(requests)}
+    # user: User = User.query.filter(
+    #     User.account_key == session["user_key"]
+    # ).first()
+    return {
+        "needs_signing": json.loads(
+            json.dumps(requests, cls=cmn.CustomJSONEncoder)
+        )
+    }, 200
+
+
+@account_api.post("/signing_request")
+def set_signing_requests():
+    """."""
+    _user_login_required()
+    in_data = json.loads(request.get_json())
     user: User = User.query.filter(
         User.account_key == session["user_key"]
     ).first()
-    return {
-        "needs_signing": json.loads(
-            json.dumps(user.sign_requests, cls=cmn.CustomJSONEncoder)
-        )
-    }, 200
+
+    # return {
+    #     "needs_signing": json.loads(
+    #         json.dumps(user.sign_requests, cls=cmn.CustomJSONEncoder)
+    #     )
+    # }, 200
 
 
 @account_api.get("/multisig_requests")

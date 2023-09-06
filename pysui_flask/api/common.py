@@ -20,7 +20,7 @@ import json
 import hashlib
 from typing import Optional, Union
 from pysui_flask.api_error import APIError, ErrorCodes
-from pysui_flask.db_tables import User, UserRole
+from pysui_flask.db_tables import User, UserRole, SigningAs
 from pysui import SyncClient, SuiConfig, SuiAddress
 from pysui.sui.sui_types.address import valid_sui_address
 from pysui.sui.sui_txn import SyncTransaction
@@ -144,24 +144,28 @@ class CustomJSONEncoder(json.JSONEncoder):  # <<-- Add this custom encoder
         return super().default(o)
 
 
-def flatten_users(accounts: list[User]) -> Union[list[User], APIError]:
-    """Resolves single and multisig users base on account_ids.
+def flatten_users(
+    accounts: dict[str, User]
+) -> Union[list[tuple[SigningAs, User]], APIError]:
+    """Splay out all account references associated to sender and or sponsor of transactions.
 
-    :param account_ids: List of account_ids
-    :type account_ids: list[str]
-    :raises APIError: If account id does not resolve to user
-    :return: List of resolved Users
-    :rtype: Union[list[User], APIError]
+    :param accounts: Identifies sender and possibly sponsor
+    :type accounts: dict[str, User]
+    :return: List of tuples identifying 'signing as' sender batch or sponsor
+    :rtype: Union[list[tuple[SigningAs, User]], APIError]
     """
-    result_list: list[User] = []
-    for account in accounts:
-        if account.user_role == UserRole.user:
-            result_list.append(account)
-        elif account.user_role == UserRole.multisig:
+    result_list: list[tuple[SigningAs, User]] = []
+    if accounts["sender"]:
+        if accounts["sender"].user_role == UserRole.user:
+            result_list.append((SigningAs.tx_sender, accounts["sender"]))
+        elif accounts["sender"].user_role == UserRole.multisig:
             pass
-        else:
-            raise APIError(
-                f"Invalid role for account: {account.user_role.value}",
-                ErrorCodes.INVALID_ACCOUNT_ROLE,
-            )
+    # TODO: This is exception
+    else:
+        pass
+    if accounts["sponsor"]:
+        if accounts["sponsor"].user_role == UserRole.user:
+            result_list.append((SigningAs.tx_sponsor, accounts["sponsor"]))
+        elif accounts["sender"].user_role == UserRole.multisig:
+            pass
     return result_list

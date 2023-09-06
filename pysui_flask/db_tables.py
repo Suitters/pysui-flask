@@ -33,17 +33,24 @@ class UserRole(enum.Enum):
 class SignatureStatus(enum.Enum):
     """Extend as needed."""
 
-    pending_signers = 1
-    partially_signed = 2
-    rejected = 3
+    pending_signers = 1  # When all signers pending
+    partially_signed = 2  # When not all have signed yet
+    denied = 3  # If one has denied
 
 
 class SignerStatus(enum.Enum):
     """Extend as needed."""
 
-    pending = 1
-    signed = 2
-    rejected = 3
+    pending = 1  # Waiting for signature
+    signed = 2  # Signed, ready to go
+    denied = 3  # Rejected signing
+
+
+class SigningAs(enum.Enum):
+    """Extend as needed."""
+
+    tx_sender = 1  # Am I being asked to sign as sender or sponsor (both if no sponsor identified)
+    tx_sponsor = 2  # Am I being asked to sign and pay for transaction
 
 
 class MultiSigStatus(enum.Enum):
@@ -51,7 +58,7 @@ class MultiSigStatus(enum.Enum):
 
     pending_attestation = 1
     confirmed = 2
-    rejected = 3
+    denied = 3
     invalid = 4
 
 
@@ -60,7 +67,7 @@ class MsMemberStatus(enum.Enum):
 
     request_attestation = 1
     confirmed = 2
-    rejected = 3
+    denied = 3
     deleted = 4
 
 
@@ -111,8 +118,8 @@ class User(db.Model):
         cascade="all, delete-orphan",
     )
     # May or may not have signing requests
-    sign_requests = db.relationship(
-        "SignatureRequest",
+    sign_track = db.relationship(
+        "SignatureTrack",
         backref="user",
         lazy=True,
         uselist=True,
@@ -222,7 +229,7 @@ class MultiSigRequest(db.Model):
 
 
 @dataclasses.dataclass
-class SignatureTracking(db.Model):
+class SignatureTrack(db.Model):
     """Signature tracking table."""
 
     id: int = db.Column(
@@ -232,18 +239,38 @@ class SignatureTracking(db.Model):
         primary_key=True,
         autoincrement=True,
     )
+    # Likley this is also the intended signer account
+    requestor: str = db.Column(
+        db.String, db.ForeignKey("user.account_key"), nullable=False
+    )
+    # Tracks requests
+    requests = db.relationship(
+        "SignatureRequest",
+        backref="signature_track",
+        lazy=True,
+        uselist=True,
+        cascade="all, delete-orphan",
+    )
 
-    # How many signatures
-    expected_signatures: int = db.Column(db.Integer, nullable=False)
-    # How many signatures received
-    completed_signatures: int = db.Column(db.Integer, nullable=False)
-    # Accumulated status
+    # This is the tx_byte base64 string that requires signing
+    tx_bytes: str = db.Column(db.String(200000), nullable=False)
+    # Status
     status: int = db.Column(db.Enum(SignatureStatus), nullable=False)
 
 
 @dataclasses.dataclass
 class SignatureRequest(db.Model):
-    """Signature request queue."""
+    """Signature request queue.
+
+    While tracking starts vis-a-vis the account that requested tx,
+    In order for individual users to know what is pening for them this
+    table is accessed directly.
+
+    Some of this information as well as the tx_bytes and requestor info
+    is shared with the response.
+
+    Some portion of the below is returned with status and signature set (if signing not denied.)
+    """
 
     id: int = db.Column(
         "sig_request_id",
@@ -252,17 +279,18 @@ class SignatureRequest(db.Model):
         primary_key=True,
         autoincrement=True,
     )
-    # This is the intended signer account
-    signing_id: str = db.Column(
-        db.String, db.ForeignKey("user.account_key"), nullable=False
-    )
     # This is backref to signtracker
-    signing_tracker: str = db.Column(
-        db.Integer,
+    tracking: str = db.Column(
+        db.String,
+        db.ForeignKey("signature_track.sig_track_id"),
         nullable=False,
     )
-    from_account: str = db.Column(db.String(44), nullable=False)
-    for_public_key: str = db.Column(db.String(44), nullable=False)
-    # This is the byte string that requires signing
-    tx_byte_string: str = db.Column(db.String(200000), nullable=False)
+    # Who is indtended to signer (can include the originator as sender)
+    signer_account_key: str = db.Column(db.String(44), nullable=False)
+    signer_public_key: str = db.Column(db.String(44), nullable=False)
+    # Are they sender or sponsoring
+    signing_as: int = db.Column(db.Enum(SigningAs), nullable=False)
+    # Control fields
     status: int = db.Column(db.Enum(SignerStatus), nullable=False)
+    # TODO: Need max signing size for response
+    signature: str = db.Column(db.String(2048), nullable=True)

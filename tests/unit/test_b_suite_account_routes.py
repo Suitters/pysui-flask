@@ -227,4 +227,21 @@ def test_signing_and_execute_requests(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert len(result["result"]["needs_signing"]) == 1
-    keystr = "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"
+    sign_request = result["result"]["needs_signing"][0]
+    sclient = SyncClient(
+        SuiConfig.user_config(
+            rpc_url="https://fullnode.devnet.sui.io:443",
+            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
+        )
+    )
+    kp = sclient.config.keypair_for_address(sclient.config.active_address)
+    assert sign_request["status"] == 1
+    assert (
+        sign_request["for_public_key"]
+        == base64.b64encode(kp.public_key.scheme_and_key()).decode()
+    )
+    sign_request["signature"] = kp.new_sign_secure(
+        sign_request.pop("tx_byte_string")
+    ).value
+    sign_request["status"] = 2
+    print(sign_request)
