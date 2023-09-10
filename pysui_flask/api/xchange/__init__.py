@@ -11,4 +11,4 @@
 
 # -*- coding: utf-8 -*-
 
-"""Schema init."""
+"""Exchange mapping init."""

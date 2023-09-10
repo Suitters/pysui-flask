@@ -101,6 +101,14 @@ class User(db.Model):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    # May or may not have a multisig config
+    multisig_configuration = db.relationship(
+        "MultiSignature",
+        backref="user",
+        lazy=True,
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     # May or may not be a member of multisig
     multisig_member = db.relationship(
         "MultiSigMember",
@@ -178,6 +186,7 @@ class MultiSignature(db.Model):
         uselist=True,
         cascade="all, delete-orphan",
     )
+    threshold: int = db.Column(db.Integer, nullable=False)
 
 
 @dataclasses.dataclass
@@ -252,6 +261,10 @@ class SignatureTrack(db.Model):
         cascade="all, delete-orphan",
     )
 
+    # Set when either are not requestor
+    explicit_sender: str = db.Column(db.String(44), nullable=True)
+    explicit_sponsor: str = db.Column(db.String(44), nullable=True)
+
     # This is the tx_byte base64 string that requires signing
     tx_bytes: str = db.Column(db.String(200000), nullable=False)
     # Status
@@ -292,5 +305,4 @@ class SignatureRequest(db.Model):
     signing_as: int = db.Column(db.Enum(SigningAs), nullable=False)
     # Control fields
     status: int = db.Column(db.Enum(SignerStatus), nullable=False)
-    # TODO: Need max signing size for response
     signature: str = db.Column(db.String(2048), nullable=True)

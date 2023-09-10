@@ -16,6 +16,7 @@ import json
 import base64
 from flask.testing import FlaskClient
 
+from pysui_flask.api.xchange.payload import *
 from pysui import SyncClient, SuiConfig
 from pysui.sui.sui_txn import SyncTransaction
 
@@ -206,12 +207,12 @@ def test_pysui_tx_execute(client: FlaskClient):
     txer.transfer_objects(
         transfers=[scoin], recipient=sclient.config.active_address
     )
-    inspect_dict = {
-        "tx_base64": base64.b64encode(
+    txin = TransactionIn(
+        tx_builder=base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
         ).decode()
-    }
-    response = client.post("/account/pysui_txn", json=json.dumps(inspect_dict))
+    )
+    response = client.post("/account/pysui_txn", json=txin.to_json())
     assert response.status_code == 201
     assert "error" not in response.json
     result = response.json
@@ -237,11 +238,19 @@ def test_signing_and_execute_requests(client: FlaskClient):
     kp = sclient.config.keypair_for_address(sclient.config.active_address)
     assert sign_request["status"] == 1
     assert (
-        sign_request["for_public_key"]
+        sign_request["signer_public_key"]
         == base64.b64encode(kp.public_key.scheme_and_key()).decode()
     )
-    sign_request["signature"] = kp.new_sign_secure(
-        sign_request.pop("tx_byte_string")
-    ).value
-    sign_request["status"] = 2
-    print(sign_request)
+    approval = SigningApproved(
+        public_key=sign_request["signer_public_key"],
+        active_address=sclient.config.active_address.address,
+        signature=kp.new_sign_secure(sign_request.pop("tx_bytes")).value,
+    )
+    payload = SigningResponse(request_id=sign_request["id"], outcome=approval)
+    response = client.post(
+        "/account/signing_request",
+        json=payload.to_json(),
+    )
+    assert response.status_code == 201
+    result = response.json
+    print(result)

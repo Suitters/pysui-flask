@@ -37,7 +37,7 @@ from . import (
 import pysui_flask.api.common as cmn
 
 from pysui_flask.api_error import APIError, ErrorCodes
-from pysui_flask.api.schema.account import (
+from pysui_flask.api.xchange.account import (
     InAccountSetup,
     OutUser,
     deserialize_account_setup,

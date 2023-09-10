@@ -12,13 +12,16 @@
 # -*- coding: utf-8 -*-
 
 """Route module."""
+import base64
 import json
+from typing import Any, Union
 
 # from http import HTTPStatus
 from flask import Blueprint, session, request
 
 from pysui_flask import db
-from pysui_flask.api.schema.account import OutUser, validate_public_key
+
+# from pysui_flask.api.xchange.account import OutUser, validate_public_key
 
 # from flasgger import swag_from
 from . import (
@@ -33,8 +36,11 @@ from . import (
 )
 import pysui_flask.api.common as cmn
 from pysui_flask.api_error import ErrorCodes, APIError
+from pysui_flask.api.xchange.payload import *
+from pysui_flask.api.xchange.account import OutUser, validate_public_key
 from pysui import SuiRpcResult, SuiAddress
-from pysui.sui.sui_txn import SyncTransaction
+from pysui.sui.sui_txn import SyncTransaction, SigningMultiSig
+from pysui.sui.sui_crypto import BaseMultiSig, SuiPublicKey
 
 
 def _user_login_required():
@@ -43,24 +49,51 @@ def _user_login_required():
 
 
 def post_signature_request(
-    from_account: User,
-    to_accounts: list[tuple[SigningAs, User]],
+    sig_set: cmn.SignersRes,
     base64_txbytes: str,
 ) -> list[str]:
-    """."""
-    accounts_notified: list[str] = []
+    """Create signature requests for transaction.
+
+    :param sig_set: Construct that lays out sender and sponsor signing users/accounts
+    :type sig_set: cmn.SignersRes
+    :param base64_txbytes: The transaction bytes to be signed
+    :type base64_txbytes: str
+    :return: List of account keys that will sign
+    :rtype: list[str]
+    """
     tracker = SignatureTrack()
     tracker.tx_bytes = base64_txbytes
+    # Explicit keys used in resolving final signatures
+    tracker.explicit_sender = sig_set.sender_account
+    tracker.explicit_sponsor = sig_set.sponsor_account
     tracker.status = SignatureStatus.pending_signers
-    sigs: list[SignatureRequest] = []
-    for sign_as, account in to_accounts:
+    accounts_notified: list[str] = []
+    # sigs: list[SignatureRequest] = []
+    # Get sending account(s)
+    for sender in sig_set.senders:
         sig_r = SignatureRequest()
         # Who is indtended to sign (can include the originator as sender)
-        sig_r.signer_account_key = account.account_key
+        sig_r.signer_account_key = sender.account_key
         # Public key of signer
-        sig_r.signer_public_key = account.configuration.public_key
+        sig_r.signer_public_key = sender.configuration.public_key
         # TODO: Are they sender or sponsoring
-        sig_r.signing_as = sign_as
+        sig_r.signing_as = SigningAs.tx_sender
+        # These are control fields
+        sig_r.status = SignerStatus.pending
+        sig_r.signature = ""
+        tracker.requests.append(sig_r)
+        # sigs.append(sig_r)
+        accounts_notified.append(sender.account_key)
+
+    # Get sending account(s)
+    for sponsor in sig_set.sponsors:
+        sig_r = SignatureRequest()
+        # Who is indtended to sign (can include the originator as sender)
+        sig_r.signer_account_key = sponsor.account_key
+        # Public key of signer
+        sig_r.signer_public_key = sponsor.configuration.public_key
+        # TODO: Are they sender or sponsoring
+        sig_r.signing_as = SigningAs.tx_sponsor
         # These are control fields
         sig_r.status = SignerStatus.pending
         sig_r.signature = ""
@@ -69,7 +102,7 @@ def post_signature_request(
         accounts_notified.append(account.account_key)
 
     # tracker.requests = sigs
-    from_account.sign_track.append(tracker)
+    sig_set.requestor.sign_track.append(tracker)
     db.session.commit()
     return accounts_notified
 
@@ -216,56 +249,48 @@ def account_inspect_or_validate_transaction():
 def account_execute_transaction():
     """Deserialize and execute builder construct."""
     _user_login_required()
+    try:
+        payload: TransactionIn = TransactionIn.from_json(request.get_json())
+    except Exception as exc:
+        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
+    # Verify signatures and return user model
+    sig_req: cmn.SignersRes = cmn.verify_tx_signers_existence(
+        requestor=session["user_key"], payload=payload
+    )
     client, user = cmn.client_for_account_action(session["user_key"])
-    signers = {"sender": user, "sponsor": None}
-    in_data = json.loads(request.get_json())
-    tx_builder = in_data.get("tx_base64")
-    verify = in_data.get("run_verification", False)
-    gas_budget = in_data.get("gas_budget", "")
-    gas_object = in_data.get("use_gas_object", None)
-    sponsor_account_key = in_data.get("txn_sponsor", None)
 
-    if tx_builder:
-        txer = cmn.deser_transaction(client, tx_builder)
-        try:
-            # This user is the sender
-            txer.signer_block.sender = SuiAddress(
-                user.configuration.active_address
+    txer = cmn.deser_transaction(client, payload.tx_builder)
+    try:
+        # Setup sender
+        txer.signer_block.sender = cmn.construct_sender(sig_req)
+        # Optional setup sponsor
+        if sig_req.sponsor:
+            txer.signer_block.sponsor = cmn.construct_sigblock_entry(
+                sig_req.sponsor
             )
-            if sponsor_account_key:
-                sponsor = User.query.filter(
-                    User.account_key == sponsor_account_key
-                ).first()
-                if not sponsor:
-                    raise APIError(
-                        f"Sponsor account with key: {sponsor_account_key} not found",
-                        ErrorCodes.ACCOUNT_NOT_FOUND,
-                    )
-                else:
-                    signers["sponsor"] = sponsor
-            gas_object = (
-                gas_object
-                if (gas_object and cmn.validate_object_id(gas_object, True))
+        # TODO:
+        # Verify objects in builder are owned
+
+        # Generate the tx_data (serialized as base64)
+        txdata_to_sign = txer.deferred_execution(
+            run_verification=payload.verify,
+            use_gas_object=(
+                payload.gas_object
+                if (
+                    payload.gas_object
+                    and cmn.validate_object_id(payload.gas_object, True)
+                )
                 else None
-            )
-            txdata_to_sign = txer.deferred_execution(
-                run_verification=verify,
-                use_gas_object=gas_object,
-                gas_budget=gas_budget,
-            )
-            # This is temporary
-            # Post to user sign requests
-            # Flatten accounts to post to
-            requests_submitted = post_signature_request(
-                user, cmn.flatten_users(signers), txdata_to_sign
-            )
-            # Post txdata to request table
-            return {"accounts_posted": requests_submitted}, 201
-        except Exception as exc:
-            raise APIError(
-                f"Exception {exc.args[0]}", ErrorCodes.CONTENT_TYPE_ERROR
-            )
-    raise APIError("Missing 'tx_base64' string", ErrorCodes.PYSUI_ERROR_BASE)
+            ),
+            gas_budget=payload.gas_budget,
+        )
+        # Post to user sign requests
+        requests_submitted = post_signature_request(sig_req, txdata_to_sign)
+        return {"accounts_posted": requests_submitted}, 201
+    except Exception as exc:
+        raise APIError(
+            f"Exception {exc.args[0]}", ErrorCodes.CONTENT_TYPE_ERROR
+        )
 
 
 @account_api.get("/signing_requests")
@@ -275,31 +300,35 @@ def get_signing_requests():
     requests: list[SignatureRequest] = SignatureRequest.query.filter(
         SignatureRequest.signer_account_key == session["user_key"]
     ).all()
-    # return {"total_requests": len(requests)}
-    # user: User = User.query.filter(
-    #     User.account_key == session["user_key"]
-    # ).first()
-    return {
-        "needs_signing": json.loads(
-            json.dumps(requests, cls=cmn.CustomJSONEncoder)
-        )
-    }, 200
+
+    # For each request, we need to grab the tx_bytes from the
+    # tracker of the request and drop a few fields
+    requests_enhanced: list[dict] = []
+    for request in requests:
+        jsc = json.loads(json.dumps(request, cls=cmn.CustomJSONEncoder))
+        jsc["tx_bytes"] = request.signature_track.tx_bytes
+        jsc.pop("tracking")
+        jsc.pop("signature")
+        requests_enhanced.append(jsc)
+
+    return {"needs_signing": json.loads(json.dumps(requests_enhanced))}, 200
 
 
 @account_api.post("/signing_request")
 def set_signing_requests():
     """."""
     _user_login_required()
-    in_data = json.loads(request.get_json())
     user: User = User.query.filter(
         User.account_key == session["user_key"]
     ).first()
+    try:
+        payload: SigningResponse = SigningResponse.from_json(
+            request.get_json()
+        )
+    except Exception as exc:
+        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
 
-    # return {
-    #     "needs_signing": json.loads(
-    #         json.dumps(user.sign_requests, cls=cmn.CustomJSONEncoder)
-    #     )
-    # }, 200
+    return {"accepted": True}, 201
 
 
 @account_api.get("/multisig_requests")
