@@ -38,6 +38,7 @@ import pysui_flask.api.common as cmn
 from pysui_flask.api_error import ErrorCodes, APIError
 from pysui_flask.api.xchange.payload import *
 from pysui_flask.api.xchange.account import OutUser, validate_public_key
+from pysui_flask.api.signing import signature_update
 from pysui import SuiRpcResult, SuiAddress
 from pysui.sui.sui_txn import SyncTransaction, SigningMultiSig
 from pysui.sui.sui_crypto import BaseMultiSig, SuiPublicKey
@@ -246,7 +247,7 @@ def account_inspect_or_validate_transaction():
 
 
 @account_api.post("/pysui_txn")
-def account_execute_transaction():
+def account_submit_transaction():
     """Deserialize and execute builder construct."""
     _user_login_required()
     try:
@@ -309,6 +310,7 @@ def get_signing_requests():
         jsc["tx_bytes"] = request.signature_track.tx_bytes
         jsc.pop("tracking")
         jsc.pop("signature")
+        jsc.pop("signer_account_key")
         requests_enhanced.append(jsc)
 
     return {"needs_signing": json.loads(json.dumps(requests_enhanced))}, 200
@@ -318,17 +320,18 @@ def get_signing_requests():
 def set_signing_requests():
     """."""
     _user_login_required()
-    user: User = User.query.filter(
-        User.account_key == session["user_key"]
-    ).first()
     try:
         payload: SigningResponse = SigningResponse.from_json(
             request.get_json()
         )
+        result = signature_update(
+            session_key=session["user_key"], sig_resp=payload
+        )
+
     except Exception as exc:
         raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
 
-    return {"accepted": True}, 201
+    return {"signature_response": result}, 201
 
 
 @account_api.get("/multisig_requests")

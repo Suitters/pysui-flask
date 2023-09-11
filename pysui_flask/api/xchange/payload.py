@@ -17,14 +17,6 @@ from dataclasses import dataclass, field
 from typing import Optional, Union
 from dataclasses_json import dataclass_json
 
-# signers = {"sender": user, "sponsor": None}
-# in_data = json.loads(request.get_json())
-# tx_builder = in_data.get("tx_base64")
-# verify = in_data.get("run_verification", False)
-# gas_budget = in_data.get("gas_budget", "")
-# gas_object = in_data.get("use_gas_object", None)
-# sponsor_account_key = in_data.get("txn_sponsor", None)
-
 
 @dataclass_json
 @dataclass
@@ -106,6 +98,16 @@ class SigningResponse:
 
     request_id: int
     outcome: Union[SigningApproved, SigningRejected]
+
+    @property
+    def approved(self) -> bool:
+        """Test whether signature approved."""
+        return isinstance(self.outcome, SigningApproved)
+
+    @property
+    def rejected(self) -> bool:
+        """Test whether signature approved."""
+        return isinstance(self.outcome, SigningRejected)
 
 
 if __name__ == "__main__":
