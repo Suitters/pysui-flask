@@ -34,8 +34,10 @@ class SignatureStatus(enum.Enum):
     """Extend as needed."""
 
     pending_signers = 1  # When all signers pending
-    partially_signed = 2  # When not all have signed yet
-    denied = 3  # If one has denied
+    partially_completed = 2  # When not all have signed yet
+    denied = 3  # If any one has denied
+    signed = 4  # When all signed
+    signed_and_executed = 5  # When already executed
 
 
 class SignerStatus(enum.Enum):
@@ -260,6 +262,14 @@ class SignatureTrack(db.Model):
         uselist=True,
         cascade="all, delete-orphan",
     )
+    # Tracks Execution
+    execution = db.relationship(
+        "TransactionResult",
+        backref="signature_track",
+        lazy=True,
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     # Set when either are not requestor
     explicit_sender: str = db.Column(db.String(44), nullable=True)
@@ -276,7 +286,7 @@ class SignatureRequest(db.Model):
     """Signature request queue.
 
     While tracking starts vis-a-vis the account that requested tx,
-    In order for individual users to know what is pening for them this
+    In order for individual users to know what is pending for them this
     table is accessed directly.
 
     Some of this information as well as the tx_bytes and requestor info
@@ -306,3 +316,24 @@ class SignatureRequest(db.Model):
     # Control fields
     status: int = db.Column(db.Enum(SignerStatus), nullable=False)
     signature: str = db.Column(db.String(2048), nullable=True)
+
+
+@dataclasses.dataclass
+class TransactionResult(db.Model):
+    """Transaction tracking table."""
+
+    id: int = db.Column(
+        "txn_id",
+        db.Integer,
+        nullable=False,
+        primary_key=True,
+        autoincrement=True,
+    )
+    # This is backref to signtracker
+    tracking: str = db.Column(
+        db.String,
+        db.ForeignKey("signature_track.sig_track_id"),
+        nullable=False,
+    )
+    transaction_passed: bool = db.Column(db.Boolean, nullable=False)
+    transaction_response: str = db.Column(db.String(10240), nullable=False)

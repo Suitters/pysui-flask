@@ -13,7 +13,7 @@
 
 """Execution module."""
 
-from typing import Any
+from typing import Any, Union
 from pysui_flask.db_tables import (
     db,
     User,
@@ -23,21 +23,152 @@ from pysui_flask.db_tables import (
     SignatureStatus,
     SignatureRequest,
     SignatureTrack,
+    TransactionResult,
 )
+import pysui_flask.api.common as cmn
 from pysui_flask.api.xchange.payload import SigningResponse
 
+from pysui import SyncClient, SuiRpcResult
+from pysui.sui.sui_builders.base_builder import SuiRequestType
+from pysui.sui.sui_builders.exec_builders import ExecuteTransaction
 
-def _update_tracker(*, session_key: str, sig_req: SignatureRequest) -> Any:
+
+def _gather_msig_signature():
+    """."""
+
+
+def _gather_address_and_signatures(
+    *, track: SignatureTrack
+) -> tuple[User, list[str]]:
+    """."""
+    # With sender we also want the SuiClient specific
+    # to their account and configuration
+    client, sender = cmn.client_for_account_action(
+        track.explicit_sender or track.requestor
+    )
+    # Signature list
+    sigs: list[str] = []
+    # If sender not multi-sig than sig is in the track list
+    if sender.user_role == UserRole.user:
+        for regs in track.requests:
+            if regs.signing_as == SigningAs.tx_sender:
+                sigs.append(regs.signature)
+    # Else multisig
+    else:
+        pass
+
+    # If sponsor identified
+    if track.explicit_sponsor:
+        sponsor = User.query.filter(
+            User.account_key == track.explicit_sponsor
+        ).one()
+        if sponsor.user_role == UserRole.user:
+            for regs in track.requests:
+                if regs.signing_as == SigningAs.tx_sponsor:
+                    sigs.append(regs.signature)
+        # Else multisig
+        else:
+            pass
+
+    return client, sender, sigs
+
+
+def _process_tracker(
+    *, track: SignatureTrack, requested: SigningResponse
+) -> str:
+    """."""
+    # Ready to execution
+    if track.status == SignatureStatus.signed:
+        tx_bytes: str = track.tx_bytes
+        # Gather signatures and sender address
+        pysui_client, sender, signatures = _gather_address_and_signatures(
+            track=track
+        )
+
+        result = pysui_client.execute(
+            ExecuteTransaction(
+                tx_bytes=tx_bytes,
+                signatures=signatures,
+                request_type=SuiRequestType.WAITFORLOCALEXECUTION,
+            )
+        )
+        # Create or update a transaction request
+        tx_result = TransactionResult()
+        if result.is_ok():
+            tx_result.transaction_passed = True
+            tx_result.transaction_response = result.result_data.to_json()
+        else:
+            tx_result.transaction_passed = False
+            tx_result.transaction_response = result.result_string
+        track.status = SignatureStatus.signed_and_executed
+        track.execution = tx_result
+        db.session.commit()
+    # Ready to shutdown
+    elif track.status == SignatureStatus.denied:
+        tx_result = TransactionResult()
+        tx_result.transaction_passed = False
+        tx_result.transaction_response = "Signing denied."
+        track.execution = tx_result
+        db.session.commit()
+    # Still waiting for signatures
+    else:
+        pass
+    return track.status.name
+
+
+def _update_tracker(
+    *, session_key: str, sig_req: SignatureRequest
+) -> Union[SignatureTrack, str]:
     """."""
     track: SignatureTrack = SignatureTrack.query.filter(
         SignatureTrack.id == sig_req.tracking
     ).one()
-    return None
+    # If already denied, signed or signed and executed... quick exit
+    if (
+        track.status != SignatureStatus.denied
+        and track.status != SignatureStatus.signed
+        and track.status != SignatureStatus.signed_and_executed
+    ):
+        rlen = len(track.requests)
+        # If the rlen is 1 then what we are receiving is it
+        # A single only indicates a non-multisig signer which may likely be
+        # the requestor
+        if rlen == 1:
+            if sig_req.status == SignerStatus.denied:
+                track.status = SignatureStatus.denied
+            # All signed, ready to execute
+            elif sig_req.status == SignerStatus.signed:
+                track.status = SignatureStatus.signed
+        else:
+            scount: int = 0
+            dcount: int = 0
+            # Tally
+            for areq in track.requests:
+                scount += 1 if areq.status == SignatureStatus.signed else 0
+                dcount += 1 if areq.status == SignatureStatus.denied else 0
+            # All denied, set and return
+            if dcount == rlen:
+                track.status = SignatureStatus.denied
+            # All signed, execute and return
+            elif scount == rlen:
+                track.status = SignatureStatus.signed
+            # Otherwise, more to come
+            else:
+                track.status = SignatureStatus.partially_completed
+        db.session.commit()
+        track = (
+            track
+            if track.status == SignatureStatus.signed
+            else track.status.name
+        )
+    else:
+        track = track.status.name
+    return track
 
 
 def _update_signatures(
     *, session_key: str, sig_req: SignatureRequest, sig_resp: SigningResponse
-) -> Any:
+) -> SignatureTrack:
     """Handles state change on signature.
 
     Walks up to tracker and sets status accordingly
@@ -56,11 +187,12 @@ def _update_signatures(
     if sstatus == SignerStatus.signed:
         sig_req.signature = sig_resp.outcome.signature
     db.session.commit()
-    _update_tracker(session_key=session_key, sig_req=sig_req)
-    return "Signed"
+    return _update_tracker(session_key=session_key, sig_req=sig_req)
 
 
-def signature_update(*, session_key: str, sig_resp: SigningResponse) -> Any:
+def signature_update(
+    *, session_key: str, sig_resp: SigningResponse
+) -> SignatureStatus:
     """."""
     sign_request: SignatureRequest = SignatureRequest.query.filter(
         SignatureRequest.id == sig_resp.request_id
@@ -70,9 +202,16 @@ def signature_update(*, session_key: str, sig_resp: SigningResponse) -> Any:
         # user: User = User.query.filter(
         #     User.account_key == session["user_key"]
         # ).first()
-        result = _update_signatures(
+        tracker = _update_signatures(
             session_key=session_key,
             sig_req=sign_request,
             sig_resp=sig_resp,
         )
+        if isinstance(tracker, SignatureTrack):
+            result = _process_tracker(track=tracker, requested=sig_resp)
+        else:
+            result = tracker
+    # TODO: If key's aren't matching exception
+    else:
+        result = SignatureStatus.partially_completed
     return result
