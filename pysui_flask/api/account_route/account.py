@@ -294,26 +294,61 @@ def account_submit_transaction():
         )
 
 
+def _requested_filtered(
+    acct_key: str, payload: SignRequestFilter
+) -> list[SignatureRequest]:
+    """."""
+    sign_as: list[SigningAs] = []
+    status_is: list[SignerStatus] = []
+    if payload.signing_as:
+        if payload.signing_as.lower() == "sender":
+            sign_as.append(SigningAs.tx_sender)
+        elif payload.signing_as.lower() == "sponsor":
+            sign_as.append(SigningAs.tx_sponsor)
+    else:
+        sign_as.extend([SigningAs.tx_sender, SigningAs.tx_sponsor])
+
+    if payload.pending or payload.signed or payload.denied:
+        if payload.pending:
+            status_is.append(SignerStatus.pending)
+        if payload.signed:
+            status_is.append(SignerStatus.signed)
+        if payload.denied:
+            status_is.append(SignerStatus.denied)
+    else:
+        status_is.extend(
+            [
+                SignerStatus.pending,
+                SignerStatus.signed,
+                SignerStatus.denied,
+            ]
+        )
+    return SignatureRequest.query.filter(
+        SignatureRequest.signer_account_key == acct_key,
+        SignatureRequest.signing_as.in_(sign_as),
+        SignatureRequest.status.in_(status_is),
+    ).all()
+
+
 @account_api.get("/signing_requests")
 def get_signing_requests():
     """."""
     _user_login_required()
-    requests: list[SignatureRequest] = SignatureRequest.query.filter(
-        SignatureRequest.signer_account_key == session["user_key"]
-    ).all()
-
+    requests: list[SignatureRequest] = _requested_filtered(
+        session["user_key"], SignRequestFilter.from_json(request.get_json())
+    )
     # For each request, we need to grab the tx_bytes from the
     # tracker of the request and drop a few fields
     requests_enhanced: list[dict] = []
-    for request in requests:
-        jsc = json.loads(json.dumps(request, cls=cmn.CustomJSONEncoder))
-        jsc["tx_bytes"] = request.signature_track.tx_bytes
+    for requested in requests:
+        jsc = json.loads(json.dumps(requested, cls=cmn.CustomJSONEncoder))
+        jsc["tx_bytes"] = requested.signature_track.tx_bytes
         jsc.pop("tracking")
         jsc.pop("signature")
         jsc.pop("signer_account_key")
         requests_enhanced.append(jsc)
 
-    return {"needs_signing": json.loads(json.dumps(requests_enhanced))}, 200
+    return {"signing_requests": json.loads(json.dumps(requests_enhanced))}, 200
 
 
 @account_api.post("/signing_request")
@@ -332,6 +367,38 @@ def set_signing_requests():
         raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
 
     return {"signature_response": result}, 201
+
+
+@account_api.get("/pysui_get_txn")
+def get_transaction_results():
+    """Get transactions the account is in context of."""
+    _user_login_required()
+    tx_filter: TransactionFilter = TransactionFilter.from_json(
+        request.get_json()
+    )
+    requests: list[SignatureRequest] = _requested_filtered(
+        session["user_key"], tx_filter.request_filter
+    )
+    tx_result: list[dict] = []
+    # Result is:
+    # {"transactions":[{"track":tsc,"signers":[dict],"results":dict}]}
+    # For each request, get the tracker and go top down
+    for ireq in requests:
+        track: SignatureTrack = SignatureTrack.query.filter(
+            SignatureTrack.id == ireq.tracking
+        ).one()
+        data_point = {
+            "track": json.loads(json.dumps(track, cls=cmn.CustomJSONEncoder)),
+            "signers": [
+                json.loads(json.dumps(x, cls=cmn.CustomJSONEncoder))
+                for x in track.requests
+            ],
+            "result": json.loads(
+                json.dumps(track.execution, cls=cmn.CustomJSONEncoder)
+            ),
+        }
+        tx_result.append(data_point)
+    return {"transactions": json.loads(json.dumps(tx_result))}, 200
 
 
 @account_api.get("/multisig_requests")

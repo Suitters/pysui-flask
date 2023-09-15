@@ -110,5 +110,26 @@ class SigningResponse:
         return isinstance(self.outcome, SigningRejected)
 
 
+@dataclass_json
+@dataclass
+class SignRequestFilter:
+    """Filter for request query."""
+
+    signing_as: Optional[str] = None
+    pending: Optional[bool] = False
+    signed: Optional[bool] = False
+    denied: Optional[bool] = False
+
+
+@dataclass_json
+@dataclass
+class TransactionFilter:
+    """Filter for execution status."""
+
+    request_filter: Optional[SignRequestFilter] = field(
+        default_factory=SignRequestFilter
+    )
+
+
 if __name__ == "__main__":
     pass

@@ -191,7 +191,18 @@ def test_no_signing_requests(client: FlaskClient):
     )
     assert response.status_code == 200
     result = response.json
-    assert not result["result"]["needs_signing"]
+    assert not result["result"]["signing_requests"]
+
+
+def test_no_transactions(client: FlaskClient):
+    """Should be empty."""
+    response = client.get(
+        "/account/pysui_get_txn",
+        json=json.dumps({}),
+    )
+    assert response.status_code == 200
+    result = response.json
+    assert not result["result"]["transactions"]
 
 
 def test_pysui_tx_execute(client: FlaskClient):
@@ -219,16 +230,17 @@ def test_pysui_tx_execute(client: FlaskClient):
     assert len(result["result"]["accounts_posted"]) == 1
 
 
-def test_signing_and_execute_requests(client: FlaskClient):
-    """Should not be empty."""
+def test_sender_is_requestor_execute(client: FlaskClient):
+    """Test execution after signing."""
+    rfilt = SignRequestFilter(pending=True)
     response = client.get(
         "/account/signing_requests",
-        json=json.dumps({}),
+        json=rfilt.to_json(),
     )
     assert response.status_code == 200
     result = response.json
-    assert len(result["result"]["needs_signing"]) == 1
-    sign_request = result["result"]["needs_signing"][0]
+    assert len(result["result"]["signing_requests"]) == 1
+    sign_request = result["result"]["signing_requests"][0]
     sclient = SyncClient(
         SuiConfig.user_config(
             rpc_url="https://fullnode.devnet.sui.io:443",
@@ -253,4 +265,22 @@ def test_signing_and_execute_requests(client: FlaskClient):
     )
     assert response.status_code == 201
     result = response.json
+    response = client.get(
+        "/account/signing_requests",
+        json=rfilt.to_json(),
+    )
+    assert response.status_code == 200
+    result = response.json
+    assert not result["result"]["signing_requests"]
     print(result)
+
+
+def test_transactions(client: FlaskClient):
+    """Should not be empty."""
+    response = client.get(
+        "/account/pysui_get_txn",
+        json=json.dumps({}),
+    )
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["transactions"]
