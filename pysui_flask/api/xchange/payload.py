@@ -97,17 +97,23 @@ class SigningResponse:
     """."""
 
     request_id: int
-    outcome: Union[SigningApproved, SigningRejected]
+    accepted_outcome: Optional[SigningApproved] = None
+    rejected_outcome: Optional[SigningRejected] = None
+
+    def __post_init__(self):
+        """Check."""
+        if self.accepted_outcome and self.rejected_outcome:
+            print("Problem")
 
     @property
     def approved(self) -> bool:
         """Test whether signature approved."""
-        return isinstance(self.outcome, SigningApproved)
+        return self.accepted_outcome
 
     @property
     def rejected(self) -> bool:
         """Test whether signature approved."""
-        return isinstance(self.outcome, SigningRejected)
+        return self.rejected_outcome
 
 
 @dataclass_json
@@ -132,4 +138,10 @@ class TransactionFilter:
 
 
 if __name__ == "__main__":
-    pass
+    denied = SigningRejected(
+        cause="Don't want to",
+    )
+    payload = SigningResponse(request_id=5, rejected_outcome=denied)
+    pjson = payload.to_json()
+    nload = SigningResponse.from_json(pjson)
+    print(nload)

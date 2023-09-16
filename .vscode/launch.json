@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Payload",
+            "type": "python",
+            "request": "launch",
+            "module": "pysui_flask.api.xchange.payload",
+            "justMyCode": false
+        },
+        {
             "name": "pysui-flask",
             "type": "python",
             "request": "launch",

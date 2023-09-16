@@ -362,11 +362,11 @@ def set_signing_requests():
         result = signature_update(
             session_key=session["user_key"], sig_resp=payload
         )
+        action_taken = {"signature_response": result}
+        return action_taken, 201
 
     except Exception as exc:
         raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
-
-    return {"signature_response": result}, 201
 
 
 @account_api.get("/pysui_get_txn")

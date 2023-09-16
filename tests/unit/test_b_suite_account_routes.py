@@ -258,7 +258,9 @@ def test_sender_is_requestor_execute(client: FlaskClient):
         active_address=sclient.config.active_address.address,
         signature=kp.new_sign_secure(sign_request.pop("tx_bytes")).value,
     )
-    payload = SigningResponse(request_id=sign_request["id"], outcome=approval)
+    payload = SigningResponse(
+        request_id=sign_request["id"], accepted_outcome=approval
+    )
     response = client.post(
         "/account/signing_request",
         json=payload.to_json(),
@@ -284,3 +286,66 @@ def test_transactions(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert result["result"]["transactions"]
+
+
+def test_pysui_tx_execute_deny_sig(client: FlaskClient):
+    """Test deserializing and inspecting a SuiTransaction."""
+    # Post the code
+    sclient = SyncClient(
+        SuiConfig.user_config(
+            rpc_url="https://fullnode.devnet.sui.io:443",
+            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
+        )
+    )
+    txer = SyncTransaction(sclient)
+    scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
+    txer.transfer_objects(
+        transfers=[scoin], recipient=sclient.config.active_address
+    )
+    txin = TransactionIn(
+        tx_builder=base64.b64encode(
+            txer.serialize(include_sender_sponsor=False)
+        ).decode()
+    )
+    response = client.post("/account/pysui_txn", json=txin.to_json())
+    assert response.status_code == 201
+    assert "error" not in response.json
+    result = response.json
+    assert len(result["result"]["accounts_posted"]) == 1
+    # Get pending sig
+    rfilt = SignRequestFilter(pending=True)
+    response = client.get(
+        "/account/signing_requests",
+        json=rfilt.to_json(),
+    )
+    assert response.status_code == 200
+    result = response.json
+    assert len(result["result"]["signing_requests"]) == 1
+    # Deny the signature
+    sign_request = result["result"]["signing_requests"][0]
+    sclient = SyncClient(
+        SuiConfig.user_config(
+            rpc_url="https://fullnode.devnet.sui.io:443",
+            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
+        )
+    )
+    kp = sclient.config.keypair_for_address(sclient.config.active_address)
+    assert sign_request["status"] == 1
+    assert (
+        sign_request["signer_public_key"]
+        == base64.b64encode(kp.public_key.scheme_and_key()).decode()
+    )
+
+    denied = SigningRejected(
+        cause="Don't want to",
+    )
+    payload = SigningResponse(
+        request_id=sign_request["id"], rejected_outcome=denied
+    )
+    response = client.post(
+        "/account/signing_request",
+        json=payload.to_json(),
+    )
+    assert response.status_code == 201
+    result = response.json
+    assert result["result"]["signature_response"] == "denied"

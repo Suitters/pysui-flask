@@ -11,7 +11,8 @@ apispec = "*"
 python-dotenv = "*"
 flask-session = "*"
 flask-sqlalchemy = "*"
-pysui = {path = "./../pysui/dist/pysui-0.35.1-py3-none-any.whl"}
+pysui = "*"
+black = "*"
 
 [dev-packages]
 pytest = "*"

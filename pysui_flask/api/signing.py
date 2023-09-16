@@ -118,11 +118,9 @@ def _process_tracker(
 
 def _update_tracker(
     *, session_key: str, sig_req: SignatureRequest
-) -> Union[SignatureTrack, str]:
+) -> SignatureTrack:
     """."""
-    track: SignatureTrack = SignatureTrack.query.filter(
-        SignatureTrack.id == sig_req.tracking
-    ).one()
+    track: SignatureTrack = sig_req.signature_track
     # If already denied, signed or signed and executed... quick exit
     if (
         track.status != SignatureStatus.denied
@@ -156,13 +154,6 @@ def _update_tracker(
             else:
                 track.status = SignatureStatus.partially_completed
         db.session.commit()
-        track = (
-            track
-            if track.status == SignatureStatus.signed
-            else track.status.name
-        )
-    else:
-        track = track.status.name
     return track
 
 
@@ -181,11 +172,12 @@ def _update_signatures(
     :rtype: Any
     """
     # Set the request state and commit
-    sstatus = SignerStatus.signed if sig_resp.approved else SignerStatus.denied
-
-    sig_req.status = sstatus
-    if sstatus == SignerStatus.signed:
-        sig_req.signature = sig_resp.outcome.signature
+    sig_req.status = (
+        SignerStatus.signed if sig_resp.approved else SignerStatus.denied
+    )
+    if sig_req.status == SignerStatus.signed:
+        # TODO: Validate other attributes of signature?
+        sig_req.signature = sig_resp.accepted_outcome.signature
     db.session.commit()
     return _update_tracker(session_key=session_key, sig_req=sig_req)
 
@@ -207,10 +199,8 @@ def signature_update(
             sig_req=sign_request,
             sig_resp=sig_resp,
         )
-        if isinstance(tracker, SignatureTrack):
-            result = _process_tracker(track=tracker, requested=sig_resp)
-        else:
-            result = tracker
+
+        result = _process_tracker(track=tracker, requested=sig_resp)
     # TODO: If key's aren't matching exception
     else:
         result = SignatureStatus.partially_completed
