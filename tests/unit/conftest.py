@@ -14,10 +14,12 @@
 """Pytest fixtures (setup/teardown) module."""
 
 from pathlib import Path
+import subprocess
 import pytest
 
 from flask.testing import FlaskClient
 from pysui_flask import app as pysui_app
+from pysui import SyncClient, SuiConfig
 
 
 def _dir_cleanup(folder: str):
@@ -47,3 +49,58 @@ def client() -> FlaskClient:
         with app.test_client() as client:
             yield client
     wipe_clean()
+
+
+LOCALNET_PROC_SET_REPO: str = ["bash", "localnet", "set-sui-repo"]
+LOCALNET_PROC_SET_ACTIVE: str = ["bash", "localnet", "set-active"]
+LOCALNET_PROC_REGEN: str = ["bash", "localnet", "regen"]
+LOCALNET_PROC_STOP: str = ["bash", "localnet", "stop"]
+
+
+def sui_base_anynet_start() -> bool:
+    """Use any suibase net settings in test."""
+    result = subprocess.run(
+        LOCALNET_PROC_REGEN, capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        return True
+    raise ValueError(f"Result of localnet regen {result.stderr}")
+
+
+def sui_base_localnet_start() -> bool:
+    """Regenerate (start sui-base localnet) and set localnet active."""
+    result = subprocess.run(
+        LOCALNET_PROC_SET_REPO, capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        result = subprocess.run(
+            LOCALNET_PROC_SET_ACTIVE, capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            result = subprocess.run(
+                LOCALNET_PROC_REGEN, capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                return True
+    raise ValueError(f"Result of localnet regen {result.stderr}")
+
+
+def sui_base_localnet_stop() -> bool:
+    """With normal teardown and/or exception stop the localnet."""
+    result = subprocess.run(LOCALNET_PROC_STOP, capture_output=True, text=True)
+    if result.returncode == 0:
+        return True
+    raise ValueError(f"Result of localnet stop {result.stderr}")
+
+
+@pytest.fixture(scope="session")
+def sui_client() -> SyncClient:
+    """Fixture to create a test session wide client pointed to sui-base localnet."""
+    # Use for jump ahead versions
+    # sui_base_anynet_start()
+    # Use for devnet versions
+    sui_base_localnet_start()
+    client = SyncClient(SuiConfig.sui_base_config())
+    # Turn this fixture into a generator
+    yield client
+    sui_base_localnet_stop()

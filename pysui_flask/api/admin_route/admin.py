@@ -40,7 +40,7 @@ from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.api.xchange.account import (
     InAccountSetup,
     OutUser,
-    deserialize_account_setup,
+    deserialize_user_create,
 )
 
 from pysui import SuiAddress
@@ -140,7 +140,7 @@ def new_user_account():
     admin_login_required()
     try:
         # Deserialize
-        user_in: InAccountSetup = deserialize_account_setup(
+        user_in: InAccountSetup = deserialize_user_create(
             json.loads(request.get_json())
         )
         # Check if user exists
@@ -174,7 +174,7 @@ def new_user_accounts():
     admin_login_required()
     try:
         # Deserialize
-        users_in: InAccountSetup = deserialize_account_setup(
+        users_in: InAccountSetup = deserialize_user_create(
             json.loads(request.get_json())
         )
         # Check if user exists

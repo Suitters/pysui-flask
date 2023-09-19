@@ -71,26 +71,6 @@ class ExplicitUri(Schema):
     )
 
 
-def _private_key_for_wallet_key(*, wallet_key: str, key_scheme: str) -> str:
-    """Validate and convert wallet key to Sui keystring."""
-    if len(wallet_key) != SUI_HEX_ADDRESS_STRING_LEN:
-        exceptions.ValidationError(
-            f"wallet_key {len(wallet_key)} wrong, expected {SUI_HEX_ADDRESS_STRING_LEN}"
-        )
-    if wallet_key[0:2] != "0x" or wallet_key[0:2] != "0X":
-        exceptions.ValidationError(
-            "Expected wallet_key to have 0x or 0X prefix"
-        )
-    scheme = SignatureScheme[key_scheme]
-    if scheme.value > 2:
-        exceptions.ValidationError(
-            f"key_scheme {key_scheme} not valid keytype for account"
-        )
-    keybytes = bytearray(scheme.value.to_bytes(1, "little"))
-    keybytes.extend(binascii.unhexlify(wallet_key[2:]))
-    return base64.b64encode(keybytes).decode()
-
-
 def _public_key_for_base64(
     *, wallet_key: str, key_scheme: str
 ) -> tuple[str, str]:
@@ -138,7 +118,7 @@ def validate_public_key(in_pubkey) -> tuple[str, str]:
     elif isinstance(in_pubkey, str):
         if len(in_pubkey) == 44:
             pk = in_pubkey
-            addy = SuiAddress.from_bytes(base64.b64decode(pk))
+            addy = SuiAddress.from_bytes(base64.b64decode(pk)).address
     return pk, addy
 
 
@@ -176,24 +156,6 @@ class Config(Schema):
                     in_bound["public_key"] = pk
                 except Exception as exc:
                     raise exceptions.ValidationError(exc.args[0])
-                # if isinstance(in_bound["public_key"], dict):
-                #     base_keys = frozenset({"wallet_key", "key_scheme"})
-                #     if not in_bound["public_key"].keys() >= base_keys:
-                #         raise exceptions.ValidationError(
-                #             f"Wallet key requires 'wallet_key' and 'key_scheme'"
-                #         )
-                #     pk, addy = _public_key_for_base64(**in_bound["public_key"])
-                #     in_bound["address"] = addy
-                #     in_bound["public_key"] = pk
-                # elif isinstance(in_bound["public_key"], str):
-                #     if len(in_bound["public_key"]) == 44:
-                #         in_bound["address"] = SuiAddress.from_bytes(
-                #             base64.b64decode(in_bound["public_key"])
-                #         )
-                #     else:
-                #         raise exceptions.ValidationError(
-                #             f"Config expects a map with data found {in_bound}"
-                #         )
             else:
                 in_bound["address"] = ""
                 in_bound["public_key"] = ""
@@ -235,7 +197,7 @@ class MultiSig(Schema):
     threshold = fields.Int(
         required=True, strict=True, validate=validate.Range(min=1, max=2550)
     )
-    requires_attestation = fields.Bool(required=True)
+    requires_attestation = fields.Bool(required=False)
 
     @post_load
     def member_check(self, item, many, **kwargs):
@@ -309,17 +271,7 @@ class InAccountSetup:
 _in_account_setup = InAccountSetup.schema()
 
 
-@dataclass_json
-@dataclass
-class InMultiSigSetup:
-    """Container for new user account setup."""
-
-    user: InUser
-    config: InConfig
-    ms_members: str
-
-
-def deserialize_account_setup(in_data: Union[dict, list]) -> InAccountSetup:
+def deserialize_user_create(in_data: Union[dict, list]) -> InAccountSetup:
     """Deserialize inbound account data during user setup.
 
     It is first passed through marshmallow for validation before
@@ -335,6 +287,57 @@ def deserialize_account_setup(in_data: Union[dict, list]) -> InAccountSetup:
     elif isinstance(in_data, list):
         outputs: list = _setup_schemas.load(in_data)
         return [_in_account_setup.load(x) for x in outputs]
+
+
+@dataclass_json
+@dataclass
+class InMultiSigMember:
+    """."""
+
+    account_key: str
+    weight: int
+
+
+@dataclass_json
+@dataclass
+class InMultiSig:
+    """."""
+
+    members: list[InMultiSigMember]
+    threshold: int
+
+
+@dataclass_json
+@dataclass
+class InMultiSigSetup:
+    """Container for new user account setup."""
+
+    user: InUser
+    config: InConfig
+    multi_sig: InMultiSig
+
+
+# For performance, build the schema for re-use
+_in_ms_account_setup = InMultiSigSetup.schema()
+
+
+def deserialize_msig_create(in_data: Union[dict, list]) -> InMultiSigSetup:
+    """Deserialize inbound multi-sig account data during setup.
+
+    It is first passed through marshmallow for validation before
+    converted to dataclasses.
+
+    :param in_data: A dictionary of required and optional keywords
+    :type in_data: dict | list
+    :return: dataclass(es) for result data
+    :rtype: InAccountSetup | list[InAccountSetup]
+    """
+    if isinstance(in_data, dict):
+        step = _ms_setup_schema.load(in_data)
+        return _in_ms_account_setup.load(step)
+    elif isinstance(in_data, list):
+        outputs: list = _ms_setup_schemas.load(in_data)
+        return [_in_ms_account_setup.load(x) for x in outputs]
 
 
 class OutConfig(Schema):
@@ -357,4 +360,35 @@ class OutUser(Schema):
 
 
 if __name__ == "__main__":
-    pass
+    good_content = {
+        "user": {"username": "FrankC0", "password": "Oxnard Gimble"},
+        "config": {
+            # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
+            "public_key": {
+                "key_scheme": "ED25519",
+                "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
+            },
+            # "environment": "devnet",
+            "urls": {
+                "rpc_url": "https://fullnode.devnet.sui.io:443",
+                "ws_url": "https://fullnode.devnet.sui.io:443",
+            },
+        },
+        "multi_sig": {
+            "members": [
+                {
+                    "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
+                    "weight": 1,
+                },
+                {
+                    "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
+                    "weight": 1,
+                },
+            ],
+            "threshold": 2,
+            # "requires_attestation": False,
+        },
+    }
+    x = deserialize_msig_create(good_content)
+    print(x.to_json(indent=2))
+    print(_ms_setup_schema.load(good_content))

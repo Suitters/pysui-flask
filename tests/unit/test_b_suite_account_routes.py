@@ -22,9 +22,9 @@ from pysui.sui.sui_txn import SyncTransaction
 
 from tests.unit.utils import check_error_expect
 
-USER_LOGIN_CREDS: dict = {"username": "FrankC01", "password": "Oxnard Gimble"}
+USER_LOGIN_CREDS: dict = {"username": "FrankC015", "password": "Oxnard Gimble"}
 BAD_OPS_USER_LOGIN_CREDS: dict = {
-    "username": "FrankC09",
+    "username": "FrankC016",
     "password": "Oxnard Gimble",
 }
 
@@ -52,7 +52,6 @@ def test_no_ops(client: FlaskClient):
     )
     assert response.status_code == 200
     response = client.get("/account/gas", json=json.dumps({"all": False}))
-    assert response.status_code == 200
     check_error_expect(response, -1001)
     response = client.get("/account/logoff", json=json.dumps({}))
     assert response.status_code == 200
@@ -79,7 +78,7 @@ def test_set_publickey(client: FlaskClient):
     response = client.get("/account/gas", json=json.dumps({"all": False}))
     assert response.status_code == 200
     result = response.json
-    assert result["result"]["data"][0]
+    assert not result["result"]["data"]
     response = client.get("/account/logoff", json=json.dumps({}))
     assert response.status_code == 200
 
@@ -99,7 +98,7 @@ def test_account_post_login_root(client: FlaskClient):
     response = client.get("/account/", json=json.dumps({}))
     assert response.status_code == 200
     result = response.json
-    assert result["result"]["account"]["user_name"] == "FrankC01"
+    assert result["result"]["account"]["user_name"] == "FrankC015"
     assert result["result"]["account"]["user_role"] == 2
 
 
@@ -132,18 +131,12 @@ def test_get_object(client: FlaskClient):
     result = response.json
 
 
-def test_pysui_tx_inspect(client: FlaskClient):
+def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and inspecting a SuiTransaction."""
-    sclient = SyncClient(
-        SuiConfig.user_config(
-            rpc_url="https://fullnode.devnet.sui.io:443",
-            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
-        )
-    )
-    txer = SyncTransaction(sclient)
+    txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(
-        transfers=[scoin], recipient=sclient.config.active_address
+        transfers=[scoin], recipient=sui_client.config.active_address
     )
     inspect_dict = {
         "tx_base64": base64.b64encode(
@@ -156,18 +149,12 @@ def test_pysui_tx_inspect(client: FlaskClient):
     result = response.json
 
 
-def test_pysui_tx_verification(client: FlaskClient):
+def test_pysui_tx_verification(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and inspecting a SuiTransaction."""
-    sclient = SyncClient(
-        SuiConfig.user_config(
-            rpc_url="https://fullnode.devnet.sui.io:443",
-            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
-        )
-    )
-    txer = SyncTransaction(sclient)
+    txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(
-        transfers=[scoin], recipient=sclient.config.active_address
+        transfers=[scoin], recipient=sui_client.config.active_address
     )
     inspect_dict = {
         "tx_base64": base64.b64encode(
@@ -205,18 +192,12 @@ def test_no_transactions(client: FlaskClient):
     assert not result["result"]["transactions"]
 
 
-def test_pysui_tx_execute(client: FlaskClient):
+def test_pysui_tx_execute(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and inspecting a SuiTransaction."""
-    sclient = SyncClient(
-        SuiConfig.user_config(
-            rpc_url="https://fullnode.devnet.sui.io:443",
-            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
-        )
-    )
-    txer = SyncTransaction(sclient)
+    txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(
-        transfers=[scoin], recipient=sclient.config.active_address
+        transfers=[scoin], recipient=sui_client.config.active_address
     )
     txin = TransactionIn(
         tx_builder=base64.b64encode(
@@ -230,7 +211,9 @@ def test_pysui_tx_execute(client: FlaskClient):
     assert len(result["result"]["accounts_posted"]) == 1
 
 
-def test_sender_is_requestor_execute(client: FlaskClient):
+def test_sender_is_requestor_execute(
+    client: FlaskClient, sui_client: SyncClient
+):
     """Test execution after signing."""
     rfilt = SignRequestFilter(pending=True)
     response = client.get(
@@ -241,13 +224,9 @@ def test_sender_is_requestor_execute(client: FlaskClient):
     result = response.json
     assert len(result["result"]["signing_requests"]) == 1
     sign_request = result["result"]["signing_requests"][0]
-    sclient = SyncClient(
-        SuiConfig.user_config(
-            rpc_url="https://fullnode.devnet.sui.io:443",
-            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
-        )
+    kp = sui_client.config.keypair_for_address(
+        sui_client.config.active_address
     )
-    kp = sclient.config.keypair_for_address(sclient.config.active_address)
     assert sign_request["status"] == 1
     assert (
         sign_request["signer_public_key"]
@@ -255,7 +234,7 @@ def test_sender_is_requestor_execute(client: FlaskClient):
     )
     approval = SigningApproved(
         public_key=sign_request["signer_public_key"],
-        active_address=sclient.config.active_address.address,
+        active_address=sui_client.config.active_address.address,
         signature=kp.new_sign_secure(sign_request.pop("tx_bytes")).value,
     )
     payload = SigningResponse(
@@ -288,19 +267,15 @@ def test_transactions(client: FlaskClient):
     assert result["result"]["transactions"]
 
 
-def test_pysui_tx_execute_deny_sig(client: FlaskClient):
+def test_pysui_tx_execute_deny_sig(
+    client: FlaskClient, sui_client: SyncClient
+):
     """Test deserializing and inspecting a SuiTransaction."""
     # Post the code
-    sclient = SyncClient(
-        SuiConfig.user_config(
-            rpc_url="https://fullnode.devnet.sui.io:443",
-            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
-        )
-    )
-    txer = SyncTransaction(sclient)
+    txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(
-        transfers=[scoin], recipient=sclient.config.active_address
+        transfers=[scoin], recipient=sui_client.config.active_address
     )
     txin = TransactionIn(
         tx_builder=base64.b64encode(
@@ -323,13 +298,9 @@ def test_pysui_tx_execute_deny_sig(client: FlaskClient):
     assert len(result["result"]["signing_requests"]) == 1
     # Deny the signature
     sign_request = result["result"]["signing_requests"][0]
-    sclient = SyncClient(
-        SuiConfig.user_config(
-            rpc_url="https://fullnode.devnet.sui.io:443",
-            prv_keys=["AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl"],
-        )
+    kp = sui_client.config.keypair_for_address(
+        sui_client.config.active_address
     )
-    kp = sclient.config.keypair_for_address(sclient.config.active_address)
     assert sign_request["status"] == 1
     assert (
         sign_request["signer_public_key"]

@@ -18,6 +18,10 @@ from flask.testing import FlaskClient
 
 from tests.unit.utils import check_error_expect
 
+from pysui import SyncClient
+from pysui.abstracts.client_keypair import SignatureScheme
+from pysui.sui.sui_crypto import SuiKeyPair, SuiPublicKey
+
 ADMIN_LOGIN_CREDS: dict = {
     "username": "fastfrank",
     "password": "Oxnard Gimble",
@@ -119,61 +123,55 @@ def test_admin_account_not_found(client: FlaskClient):
     check_error_expect(response, -40)
 
 
-def _do_good(name_tag: int) -> dict:
-    """Utility to generate a valid user confighuration."""
-    good_content = {
-        "user": {"username": "FrankC0", "password": "Oxnard Gimble"},
-        "config": {
-            # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
-            "public_key": {
-                "key_scheme": "ED25519",
-                "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
+def test_admin_create_accounts(client: FlaskClient, sui_client: SyncClient):
+    """Create accounts from Sui localnode addresses."""
+    rpc_url = sui_client.config.rpc_url
+    ws_url = ""
+    addys: dict[str, SuiKeyPair] = sui_client.config.addresses_and_keys
+    goodies: list[dict] = []
+    account_index = 1
+    for kp in addys.values():
+        pub_key = kp.public_key
+        goodies.append(
+            {
+                "user": {
+                    "username": "FrankC0" + str(account_index),
+                    "password": "Oxnard Gimble",
+                },
+                "config": {
+                    "public_key": {
+                        "key_scheme": pub_key.scheme.sig_scheme,
+                        "wallet_key": pub_key.pub_key,
+                    },
+                    "urls": {
+                        "rpc_url": rpc_url,
+                        "ws_url": "",
+                    },
+                },
+            }
+        )
+        account_index += 1
+    goodies.append(
+        {
+            "user": {
+                "username": "FrankC0" + str(account_index),
+                "password": "Oxnard Gimble",
             },
-            # "environment": "devnet",
-            "urls": {
-                "rpc_url": "https://fullnode.devnet.sui.io:443",
-                "ws_url": "https://fullnode.devnet.sui.io:443",
+            "config": {
+                "public_key": None,
+                "urls": {
+                    "rpc_url": rpc_url,
+                    "ws_url": "",
+                },
             },
-        },
-    }
-    if name_tag:
-        good_content["user"]["username"] = good_content["user"][
-            "username"
-        ] + str(name_tag)
-    return good_content
-
-
-def test_admin_create_account_no_errors(client: FlaskClient):
-    """Validate single and bulk user account creations."""
-    # Good data
-    good_content = _do_good(1)
-
-    response = client.post(
-        "/admin/user_account", json=json.dumps(good_content)
+        }
     )
-    assert response.status_code == 201
-    result = response.json
-    assert "result" in result and "created" in result["result"]
-    account_key = result["result"]["created"]["account_key"]
-    response = client.get(
-        "/admin/user_account/key",
-        json=json.dumps({"account_key": account_key}),
-    )
-    assert response.status_code == 200
-    result = response.json
-    assert result["result"]["account"]["user_name"] == "FrankC01"
-    assert result["result"]["account"]["user_role"] == 2
-
-    # This creates users 2 - 9 (seven more)
-    bulk: list[dict] = [_do_good(x) for x in range(2, 10)]
-    # Make the last one no public key
-    bulk[7]["config"]["public_key"] = None
-
-    response = client.post("/admin/user_accounts", json=json.dumps(bulk))
+    response = client.post("/admin/user_accounts", json=json.dumps(goodies))
     assert response.status_code == 201
     result = response.json
     assert result["result"]["created"]
-    assert len(result["result"]["created"]) == len(bulk)
+    assert len(result["result"]["created"]) == len(goodies)
+    print(goodies)
 
 
 def test_admin_all_accounts(client: FlaskClient):
