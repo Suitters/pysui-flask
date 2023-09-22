@@ -37,6 +37,7 @@ class ErrorCodes(IntEnum):
     PYSUI_MISSING_PUBLIC_KEY: int = -1001
     PYSUI_INVALID_MS_MEMBER_KEY: int = -1002
     PYSUI_MS_MEMBER_WEIGHT_BELOW_THRESHOLD: int = -1003
+    PYSUI_MS_MEMBER_NO_ACCOUNT: int = -1004
     # Occurs when object in transaction does belong to sender or sponsor
     PYSUI_INVALID_OBJECT_OWNERSHIP: int = -1020
     # sui errors

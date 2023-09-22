@@ -67,6 +67,8 @@ class ExplicitUri(Schema):
     # ws_url = fields.Url(required=False)
     ws_url = fields.Str(
         required=False,
+        allow_none=True,
+        load_default=""
         # validate=validate.URL(schemes=["ws", "wss"]),
     )
 
@@ -197,7 +199,9 @@ class MultiSig(Schema):
     threshold = fields.Int(
         required=True, strict=True, validate=validate.Range(min=1, max=2550)
     )
-    requires_attestation = fields.Bool(required=False)
+    requires_attestation = fields.Bool(
+        required=False, allow_none=True, load_default=False
+    )
 
     @post_load
     def member_check(self, item, many, **kwargs):
@@ -218,9 +222,10 @@ class MultiSigSetup(Schema):
     """Primary wrapper for account setup."""
 
     # The msig user info
-    user = fields.Nested(UserIn, many=False, required=True)
+    account = fields.Nested(AccountSetup, many=False, required=True)
+    # user = fields.Nested(UserIn, many=False, required=True)
     # the msig config
-    config = fields.Nested(Config, many=False, required=True)
+    # config = fields.Nested(Config, many=False, required=True)
     # the msig
     multi_sig = fields.Nested(MultiSig, many=False, required=True)
 
@@ -245,7 +250,7 @@ class InUri:
     """Url settings in user account dataclass."""
 
     rpc_url: str
-    ws_url: Optional[str] = None
+    ws_url: Optional[str] = ""
 
 
 @dataclass_json
@@ -305,6 +310,7 @@ class InMultiSig:
 
     members: list[InMultiSigMember]
     threshold: int
+    requires_attestation: Optional[bool]
 
 
 @dataclass_json
@@ -312,8 +318,8 @@ class InMultiSig:
 class InMultiSigSetup:
     """Container for new user account setup."""
 
-    user: InUser
-    config: InConfig
+    account: InAccountSetup
+    # config: InConfig
     multi_sig: InMultiSig
 
 
@@ -333,8 +339,7 @@ def deserialize_msig_create(in_data: Union[dict, list]) -> InMultiSigSetup:
     :rtype: InAccountSetup | list[InAccountSetup]
     """
     if isinstance(in_data, dict):
-        step = _ms_setup_schema.load(in_data)
-        return _in_ms_account_setup.load(step)
+        return InMultiSigSetup.from_dict(in_data)
     elif isinstance(in_data, list):
         outputs: list = _ms_setup_schemas.load(in_data)
         return [_in_ms_account_setup.load(x) for x in outputs]
@@ -360,35 +365,41 @@ class OutUser(Schema):
 
 
 if __name__ == "__main__":
-    good_content = {
-        "user": {"username": "FrankC0", "password": "Oxnard Gimble"},
-        "config": {
-            # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
-            "public_key": {
-                "key_scheme": "ED25519",
-                "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
-            },
-            # "environment": "devnet",
-            "urls": {
-                "rpc_url": "https://fullnode.devnet.sui.io:443",
-                "ws_url": "https://fullnode.devnet.sui.io:443",
-            },
-        },
-        "multi_sig": {
-            "members": [
-                {
-                    "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
-                    "weight": 1,
+    good_content = [
+        {
+            "account": {
+                "user": {"username": "FrankC0", "password": "Oxnard Gimble"},
+                "config": {
+                    "public_key": None,
+                    # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
+                    # "public_key": {
+                    #     "key_scheme": "ED25519",
+                    #     "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
+                    # },
+                    # "environment": "devnet",
+                    "urls": {
+                        "rpc_url": "https://fullnode.devnet.sui.io:443",
+                        "ws_url": None,
+                    },
                 },
-                {
-                    "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
-                    "weight": 1,
-                },
-            ],
-            "threshold": 2,
-            # "requires_attestation": False,
-        },
-    }
+            },
+            "multi_sig": {
+                "members": [
+                    {
+                        "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
+                        "weight": 1,
+                    },
+                    {
+                        "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
+                        "weight": 1,
+                    },
+                ],
+                "threshold": 2,
+                "requires_attestation": True,
+            },
+        }
+    ]
     x = deserialize_msig_create(good_content)
-    print(x.to_json(indent=2))
-    print(_ms_setup_schema.load(good_content))
+    print(x)
+    # print(x.to_json(indent=2))
+    # print(_ms_setup_schema.load(good_content))

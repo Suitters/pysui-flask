@@ -14,7 +14,15 @@
 """Administrator route package."""
 
 from flask import Blueprint, session
-from pysui_flask.db_tables import User, UserRole, UserConfiguration
+from pysui_flask.db_tables import (
+    User,
+    UserRole,
+    UserConfiguration,
+    MultiSigMember,
+    MultiSignature,
+    MsMemberStatus,
+    MultiSigStatus,
+)
 from pysui_flask.api_error import APIError, ErrorCodes
 
 
@@ -27,4 +35,3 @@ def admin_login_required():
 admin_api = Blueprint("admin", __name__, url_prefix="/admin")
 
 from . import admin
-from . import ms_admin

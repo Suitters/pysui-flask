@@ -191,3 +191,51 @@ def test_admin_all_accounts(client: FlaskClient):
         assert response.status_code == 200
         result = response.json["result"]
     print(result)
+
+
+def test_admin_create_msig(client: FlaskClient, sui_client: SyncClient):
+    """Create accounts from Sui localnode addresses."""
+    # Get first 3 accounts
+    response = client.get(
+        "/admin/user_accounts", json=json.dumps({"count": 3})
+    )
+    assert response.status_code == 200
+    result = response.json["result"]["accounts"]
+    # Build members
+    base_weight = 3
+    members = []
+    for acc in result:
+        members.append(
+            {"account_key": acc["account_key"], "weight": base_weight}
+        )
+        base_weight += 3
+    threshold = 9
+
+    rpc_url = sui_client.config.rpc_url
+    # # Get 3 members
+    # msig_members = list(sui_client.config.addresses_and_keys.items())[0:3]
+
+    msig_payload = {
+        "account": {
+            "user": {
+                "username": "Msig01",
+                "password": "Oxnard Gimble",
+            },
+            "config": {
+                "public_key": None,
+                "urls": {
+                    "rpc_url": rpc_url,
+                    "ws_url": "",
+                },
+            },
+        },
+        "multi_sig": {
+            "members": members,
+            "threshold": threshold,
+            "requires_attestation": False,
+        },
+    }
+    response = client.post(
+        "/admin/multi_sig_account", json=json.dumps(msig_payload)
+    )
+    print(msig_payload)

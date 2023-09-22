@@ -32,6 +32,10 @@ from . import (
     User,
     UserRole,
     UserConfiguration,
+    MultiSignature,
+    MultiSigMember,
+    MultiSigStatus,
+    MsMemberStatus,
     admin_login_required,
 )
 import pysui_flask.api.common as cmn
@@ -39,12 +43,19 @@ import pysui_flask.api.common as cmn
 from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.api.xchange.account import (
     InAccountSetup,
+    InMultiSigSetup,
     OutUser,
     deserialize_user_create,
+    deserialize_msig_create,
 )
 
 from pysui import SuiAddress
-from pysui.sui.sui_crypto import create_new_keypair, SuiPublicKey
+from pysui.sui.sui_crypto import (
+    create_new_keypair,
+    SuiPublicKey,
+    BaseMultiSig,
+    SignatureScheme,
+)
 
 
 def _content_expected(fields):
@@ -87,6 +98,15 @@ def admin_login():
         session["name"] = in_data["username"]
         session["admin_logged_in"] = True
     return {"session": session.sid}
+
+
+@admin_api.get("/logoff")
+def account_logoff():
+    """Verify account login."""
+    admin_login_required()
+    session.pop("name")
+    session.pop("admin_logged_in")
+    return {"session": f"{session.sid} ended"}
 
 
 # Add user account - required admin logged in
@@ -134,6 +154,78 @@ def _new_user_reg(
     return users
 
 
+def _new_msig_reg(
+    *,
+    msig_configs: list[InMultiSigSetup],
+    defer_commit: Optional[bool] = False,
+) -> list[User]:
+    """."""
+    msig_results: list[User] = []
+    # Use with session and no interim flushing
+    with db.session.no_autoflush:
+        # Build the multisig constructs
+        for index, ms_setup in enumerate(msig_configs):
+            msig_entry: MultiSignature = MultiSignature()
+            msig_entry.threshold = ms_setup.multi_sig.threshold
+            msig_entry.status = (
+                MultiSigStatus.pending_attestation
+                if ms_setup.multi_sig.requires_attestation
+                else MultiSigStatus.confirmed
+            )
+            sig_keys = []
+            sig_weights = []
+            msig_members: list[MultiSigMember] = []
+            for member in ms_setup.multi_sig.members:
+                # Validate account for member exists
+                user: User = User.query.filter(
+                    User.account_key == member.account_key,
+                ).first()
+                # Build the member
+                if user:
+                    ms_member: MultiSigMember = MultiSigMember()
+                    ms_member.position = len(msig_members)
+                    ms_member.weight = member.weight
+                    ms_member.status = (
+                        MsMemberStatus.request_attestation
+                        if msig_entry.status
+                        == MultiSigStatus.pending_attestation
+                        else MsMemberStatus.confirmed
+                    )
+                    # For building a BaseMultiSig
+                    pkb = base64.b64decode(user.configuration.public_key)
+                    sig_keys.append(
+                        SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:])
+                    )
+                    sig_weights.append(ms_member.weight)
+                    # Relationships
+                    user.multisig_member.append(ms_member)
+                    msig_members.append(ms_member)
+
+                else:
+                    raise APIError(
+                        f"Account not exist as mulsig member: {member.account_key}",
+                        ErrorCodes.PYSUI_MS_MEMBER_NO_ACCOUNT,
+                    )
+            # Construct BaseMultiSig for address
+            bmsig = BaseMultiSig(sig_keys, sig_weights, msig_entry.threshold)
+            msig_entry.multisig_members.extend(msig_members)
+
+            # Create the msig user account
+            msig_configs[index].account.config.address = bmsig.address
+            msig_user: list[User] = _new_user_reg(
+                user_configs=[msig_configs[index].account],
+                defer_commit=True,
+                for_role=UserRole.multisig,
+            )
+
+            msig_user[0].multisig_configuration = msig_entry
+            msig_results.append(msig_user[0])
+
+    # Commit it all
+    db.session.commit()
+    return msig_results
+
+
 @admin_api.post("/user_account")
 def new_user_account():
     """Admin registration of new user account."""
@@ -164,6 +256,40 @@ def new_user_account():
         "created": {
             "user_name": user_persist[0].user_name_or_email,
             "account_key": user_persist[0].account_key,
+        }
+    }, 201
+
+
+@admin_api.post("/multi_sig_account")
+def new_multi_sig_account():
+    """Admin registration of new msig account."""
+    admin_login_required()
+    try:
+        # Deserialize
+        msig_in: InMultiSigSetup = deserialize_msig_create(
+            json.loads(request.get_json())
+        )
+        # Check if user exists
+        user = User.query.filter(
+            and_(
+                User.user_name_or_email.like(msig_in.account.user.username),
+                User.user_role == UserRole.user,
+            )
+        ).first()
+    except marshmallow.ValidationError as ve:
+        _content_expected(ve.messages)
+    # When we have a user with username and User role, fail
+    if user:
+        raise APIError(
+            f"MultiSig {msig_in.account.user.username} already exists.",
+            ErrorCodes.USER_ALREADY_EXISTS,
+        )
+    # Create the new multisig user, configuration and members
+    msig_persist = _new_msig_reg(msig_configs=[msig_in])
+    return {
+        "created": {
+            "user_name": msig_persist[0].user_name_or_email,
+            "account_key": msig_persist[0].account_key,
         }
     }, 201
 
