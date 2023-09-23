@@ -109,7 +109,6 @@ def verify_credentials(
     *,
     username: str,
     user_password: str,
-    expected_role: UserRole = UserRole.user,
 ) -> Union[User, APIError]:
     """Verifies credentials match database for user.
 
@@ -117,11 +116,9 @@ def verify_credentials(
     :type user_name: str
     :param user_password: Submitted password
     :type user_password: str
-    :param expected_role: The expected role set by route
-    :type expected_role: UserRole
     :raises CredentialError: If username or password lengths are invalid
     :raises CredentialError: If failure to resolve user based on passed in credentials
-    :return: The User row from DB
+    :return: The User account row from DB
     :rtype: User
     """
     # Find user
@@ -130,10 +127,9 @@ def verify_credentials(
     ).first()
     # Verify credentials
     if result:
-        if result.user_role == expected_role:
-            pwd_hashed = str_to_hash_hex(user_password)
-            if pwd_hashed == result.password:
-                return result
+        pwd_hashed = str_to_hash_hex(user_password)
+        if pwd_hashed == result.password:
+            return result
     raise APIError(
         f"Unable to verify credentials for {username}",
         ErrorCodes.CREDENTIAL_ERROR,

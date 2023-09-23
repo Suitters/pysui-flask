@@ -20,9 +20,10 @@ from pysui_flask.api.xchange.payload import *
 from pysui import SyncClient, SuiConfig
 from pysui.sui.sui_txn import SyncTransaction
 
-from tests.unit.utils import check_error_expect
+from tests.integration.utils import check_error_expect, login_user, logoff_user
 
 USER_LOGIN_CREDS: dict = {"username": "FrankC015", "password": "Oxnard Gimble"}
+MSIG_LOGIN_CREDS: dict = {"username": "Msig01", "password": "Oxnard Gimble"}
 BAD_OPS_USER_LOGIN_CREDS: dict = {
     "username": "FrankC016",
     "password": "Oxnard Gimble",
@@ -41,27 +42,23 @@ def test_bad_login_content(client: FlaskClient):
         "username": "fastfrank",
         "password": "Slippery Slope",
     }
-    response = client.get("/account/login", json=json.dumps(creds))
+    response = login_user(client, creds)
     check_error_expect(response, -10)
 
 
 def test_no_ops(client: FlaskClient):
     """Test account with no public key can't execute those that require."""
-    response = client.get(
-        "/account/login", json=json.dumps(BAD_OPS_USER_LOGIN_CREDS)
-    )
+    response = login_user(client, BAD_OPS_USER_LOGIN_CREDS)
     assert response.status_code == 200
     response = client.get("/account/gas", json=json.dumps({"all": False}))
     check_error_expect(response, -1001)
-    response = client.get("/account/logoff", json=json.dumps({}))
+    response = logoff_user(client)
     assert response.status_code == 200
 
 
 def test_set_publickey(client: FlaskClient):
     """Test account with no public key can't execute those that require."""
-    response = client.get(
-        "/account/login", json=json.dumps(BAD_OPS_USER_LOGIN_CREDS)
-    )
+    response = login_user(client, BAD_OPS_USER_LOGIN_CREDS)
     assert response.status_code == 200
     pubkey_wallet = {
         "public_key": {
@@ -79,27 +76,29 @@ def test_set_publickey(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert not result["result"]["data"]
-    response = client.get("/account/logoff", json=json.dumps({}))
-    assert response.status_code == 200
+    response = logoff_user(client)
 
 
 # This session is used through end of module
 def test_good_login_content(client: FlaskClient):
     """Validate good account login credentials."""
-    response = client.get("/account/login", json=json.dumps(USER_LOGIN_CREDS))
+    response = login_user(client, USER_LOGIN_CREDS)
     assert response.status_code == 200
     result = response.json
     assert "result" in result and "session" in result["result"]
+    _ = logoff_user(client)
 
 
 # 0x94a1d8d13ad80563f307362f730e84691fa1cde7b83932abae0af2620c3e0855
 def test_account_post_login_root(client: FlaskClient):
     """Validate error on non-JSON and empty request."""
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get("/account/", json=json.dumps({}))
     assert response.status_code == 200
     result = response.json
     assert result["result"]["account"]["user_name"] == "FrankC015"
     assert result["result"]["account"]["user_role"] == 2
+    _ = logoff_user(client)
 
 
 # Sui Calls
@@ -107,28 +106,35 @@ def test_account_post_login_root(client: FlaskClient):
 
 def test_get_gas(client: FlaskClient):
     """Should have some gas."""
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get("/account/gas", json=json.dumps({"all": False}))
     assert response.status_code == 200
     result = response.json
     assert result["result"]["data"][0]
+    _ = logoff_user(client)
 
 
 def test_get_objects(client: FlaskClient):
     """Should have some objects."""
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get("/account/objects", json=json.dumps({"all": False}))
     assert response.status_code == 200
     result = response.json
     assert result["result"]["data"]
+    _ = logoff_user(client)
 
 
 def test_get_object(client: FlaskClient):
     """Should not be empty."""
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
         "/account/object/0x5464b56a2ab51547cd7da5fe0e31278b833bf54d87df2be93c85b738f83cfb05",
         json=json.dumps({}),
     )
     assert response.status_code == 200
     result = response.json
+    assert result["result"]["code"] == "notExists"
+    _ = logoff_user(client)
 
 
 def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
@@ -143,10 +149,12 @@ def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
             txer.serialize(include_sender_sponsor=False)
         ).decode()
     }
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get("/account/pysui_txn", json=json.dumps(inspect_dict))
     assert response.status_code == 200
     assert "error" not in response.json
     result = response.json
+    _ = logoff_user(client)
 
 
 def test_pysui_tx_verification(client: FlaskClient, sui_client: SyncClient):
@@ -162,16 +170,19 @@ def test_pysui_tx_verification(client: FlaskClient, sui_client: SyncClient):
         ).decode(),
         "perform": "verification",
     }
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get("/account/pysui_txn", json=json.dumps(inspect_dict))
     assert response.status_code == 200
     assert "error" not in response.json
     result = response.json
     assert isinstance(result["result"]["verification"], str)
     assert result["result"]["verification"] == "success"
+    _ = logoff_user(client)
 
 
 def test_no_signing_requests(client: FlaskClient):
     """Should be empty."""
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
         "/account/signing_requests",
         json=json.dumps({}),
@@ -179,10 +190,12 @@ def test_no_signing_requests(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert not result["result"]["signing_requests"]
+    _ = logoff_user(client)
 
 
 def test_no_transactions(client: FlaskClient):
     """Should be empty."""
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
         "/account/pysui_get_txn",
         json=json.dumps({}),
@@ -190,6 +203,7 @@ def test_no_transactions(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert not result["result"]["transactions"]
+    _ = logoff_user(client)
 
 
 def test_pysui_tx_execute(client: FlaskClient, sui_client: SyncClient):
@@ -204,11 +218,13 @@ def test_pysui_tx_execute(client: FlaskClient, sui_client: SyncClient):
             txer.serialize(include_sender_sponsor=False)
         ).decode()
     )
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.post("/account/pysui_txn", json=txin.to_json())
     assert response.status_code == 201
     assert "error" not in response.json
     result = response.json
     assert len(result["result"]["accounts_posted"]) == 1
+    _ = logoff_user(client)
 
 
 def test_sender_is_requestor_execute(
@@ -216,6 +232,7 @@ def test_sender_is_requestor_execute(
 ):
     """Test execution after signing."""
     rfilt = SignRequestFilter(pending=True)
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
         "/account/signing_requests",
         json=rfilt.to_json(),
@@ -253,11 +270,12 @@ def test_sender_is_requestor_execute(
     assert response.status_code == 200
     result = response.json
     assert not result["result"]["signing_requests"]
-    print(result)
+    _ = logoff_user(client)
 
 
 def test_transactions(client: FlaskClient):
     """Should not be empty."""
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
         "/account/pysui_get_txn",
         json=json.dumps({}),
@@ -265,6 +283,7 @@ def test_transactions(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert result["result"]["transactions"]
+    _ = logoff_user(client)
 
 
 def test_pysui_tx_execute_deny_sig(
@@ -282,6 +301,7 @@ def test_pysui_tx_execute_deny_sig(
             txer.serialize(include_sender_sponsor=False)
         ).decode()
     )
+    _ = login_user(client, USER_LOGIN_CREDS)
     response = client.post("/account/pysui_txn", json=txin.to_json())
     assert response.status_code == 201
     assert "error" not in response.json
@@ -320,3 +340,24 @@ def test_pysui_tx_execute_deny_sig(
     assert response.status_code == 201
     result = response.json
     assert result["result"]["signature_response"] == "denied"
+    _ = logoff_user(client)
+
+
+def test_msig_login(client: FlaskClient):
+    """Test signing in with the multisig account."""
+    # Logout active user
+    # Login with multisig
+    response = login_user(client, MSIG_LOGIN_CREDS)
+    # response = client.get("/account/login", json=json.dumps(MSIG_LOGIN_CREDS))
+    assert response.status_code == 200
+    result = response.json
+    assert "session" in result["result"]
+    # Get gas
+    response = client.get("/account/gas", json=json.dumps({"all": False}))
+    assert response.status_code == 200
+    result = response.json
+    assert len(result["result"]["data"]) == 0
+    response = logoff_user(client)
+    assert response.status_code == 200
+    result = response.json
+    assert "session" in result["result"]

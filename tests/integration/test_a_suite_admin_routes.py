@@ -16,7 +16,7 @@ import json
 
 from flask.testing import FlaskClient
 
-from tests.unit.utils import check_error_expect
+from tests.integration.utils import check_error_expect
 
 from pysui import SyncClient
 from pysui.abstracts.client_keypair import SignatureScheme

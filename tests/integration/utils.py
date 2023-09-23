@@ -13,6 +13,7 @@
 
 """Pytest common utilities."""
 import json
+from flask.testing import FlaskClient
 
 
 def check_error_expect(response, ecode):
@@ -20,3 +21,13 @@ def check_error_expect(response, ecode):
     assert response.status_code == 200
     assert "error" in response.json
     assert response.json["error_code"] == ecode
+
+
+def login_user(client: FlaskClient, credentials: dict):
+    """Login any user."""
+    return client.get("/account/login", json=json.dumps(credentials))
+
+
+def logoff_user(client: FlaskClient):
+    """Login any user."""
+    return client.get("/account/logoff", json=json.dumps({}))

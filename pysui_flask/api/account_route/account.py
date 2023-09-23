@@ -141,7 +141,6 @@ def account_login():
         user: User = cmn.verify_credentials(
             username=in_data["username"],
             user_password=in_data["password"],
-            expected_role=UserRole.user,
         )
         session["name"] = in_data["username"]
         session["user_key"] = user.account_key

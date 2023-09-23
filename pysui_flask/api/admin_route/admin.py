@@ -93,7 +93,6 @@ def admin_login():
         user = cmn.verify_credentials(
             username=in_data["username"],
             user_password=in_data["password"],
-            expected_role=UserRole.admin,
         )
         session["name"] = in_data["username"]
         session["admin_logged_in"] = True
@@ -118,11 +117,15 @@ def _new_user_reg(
     defer_commit: Optional[bool] = False,
     for_role: Optional[UserRole] = UserRole.user,
 ) -> list[User]:
-    """_summary_ Process one or more new user registrations.
+    """Process one or more new user registrations.
 
     :param user_configs: list of one or more new account registrations
     :type user_configs: list[InAccountSetup]
-    :return: List of committed User types
+    :param defer_commit: Construct potential user account, defaults to False
+    :type defer_commit: Optional[bool], optional
+    :param for_role: The role to assign the account user, defaults to UserRole.user
+    :type for_role: Optional[UserRole], optional
+    :return: List of committed User accounts
     :rtype: list[User]
     """
     users: list[User] = []
@@ -159,7 +162,16 @@ def _new_msig_reg(
     msig_configs: list[InMultiSigSetup],
     defer_commit: Optional[bool] = False,
 ) -> list[User]:
-    """."""
+    """Process one or more multisig user accounts.
+
+    :param msig_configs: List of one or more MultiSig registration requests
+    :type msig_configs: list[InMultiSigSetup]
+    :param defer_commit: Construct potential user account, defaults to False
+    :type defer_commit: Optional[bool], optional
+    :raises APIError: Multisig member account_key is not a valid user
+    :return: _description_
+    :rtype: list[User]
+    """
     msig_results: list[User] = []
     # Use with session and no interim flushing
     with db.session.no_autoflush:
@@ -181,7 +193,7 @@ def _new_msig_reg(
                     User.account_key == member.account_key,
                 ).first()
                 # Build the member
-                if user:
+                if user and user.user_role == UserRole.user:
                     ms_member: MultiSigMember = MultiSigMember()
                     ms_member.position = len(msig_members)
                     ms_member.weight = member.weight
@@ -203,7 +215,7 @@ def _new_msig_reg(
 
                 else:
                     raise APIError(
-                        f"Account not exist as mulsig member: {member.account_key}",
+                        f"Account is not a valid user account: {member.account_key}",
                         ErrorCodes.PYSUI_MS_MEMBER_NO_ACCOUNT,
                     )
             # Construct BaseMultiSig for address
