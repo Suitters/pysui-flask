@@ -207,7 +207,7 @@ def test_no_transactions(client: FlaskClient):
 
 
 def test_pysui_tx_execute(client: FlaskClient, sui_client: SyncClient):
-    """Test deserializing and inspecting a SuiTransaction."""
+    """Test deserializing and submitting a SuiTransaction."""
     txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(
@@ -249,13 +249,14 @@ def test_sender_is_requestor_execute(
         sign_request["signer_public_key"]
         == base64.b64encode(kp.public_key.scheme_and_key()).decode()
     )
-    approval = SigningApproved(
-        public_key=sign_request["signer_public_key"],
-        active_address=sui_client.config.active_address.address,
-        signature=kp.new_sign_secure(sign_request.pop("tx_bytes")).value,
-    )
+
     payload = SigningResponse(
-        request_id=sign_request["id"], accepted_outcome=approval
+        request_id=sign_request["id"],
+        accepted_outcome=SigningApproved(
+            public_key=sign_request["signer_public_key"],
+            active_address=sui_client.config.active_address.address,
+            signature=kp.new_sign_secure(sign_request.pop("tx_bytes")).value,
+        ),
     )
     response = client.post(
         "/account/signing_request",
@@ -274,7 +275,7 @@ def test_sender_is_requestor_execute(
 
 
 def test_transactions(client: FlaskClient):
-    """Should not be empty."""
+    """Test transaction was executed."""
     _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
         "/account/pysui_get_txn",
@@ -289,8 +290,8 @@ def test_transactions(client: FlaskClient):
 def test_pysui_tx_execute_deny_sig(
     client: FlaskClient, sui_client: SyncClient
 ):
-    """Test deserializing and inspecting a SuiTransaction."""
-    # Post the code
+    """Test denying a signature request."""
+    # Create the transaction
     txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(
@@ -301,6 +302,7 @@ def test_pysui_tx_execute_deny_sig(
             txer.serialize(include_sender_sponsor=False)
         ).decode()
     )
+    # Post the transaction
     _ = login_user(client, USER_LOGIN_CREDS)
     response = client.post("/account/pysui_txn", json=txin.to_json())
     assert response.status_code == 201
@@ -327,11 +329,11 @@ def test_pysui_tx_execute_deny_sig(
         == base64.b64encode(kp.public_key.scheme_and_key()).decode()
     )
 
-    denied = SigningRejected(
-        cause="Don't want to",
-    )
     payload = SigningResponse(
-        request_id=sign_request["id"], rejected_outcome=denied
+        request_id=sign_request["id"],
+        rejected_outcome=SigningRejected(
+            cause="Don't want to",
+        ),
     )
     response = client.post(
         "/account/signing_request",
@@ -344,20 +346,15 @@ def test_pysui_tx_execute_deny_sig(
 
 
 def test_msig_login(client: FlaskClient):
-    """Test signing in with the multisig account."""
-    # Logout active user
+    """Test logging in with the multisig account."""
     # Login with multisig
     response = login_user(client, MSIG_LOGIN_CREDS)
-    # response = client.get("/account/login", json=json.dumps(MSIG_LOGIN_CREDS))
     assert response.status_code == 200
     result = response.json
     assert "session" in result["result"]
-    # Get gas
+    # Get gas, should be empty
     response = client.get("/account/gas", json=json.dumps({"all": False}))
     assert response.status_code == 200
     result = response.json
     assert len(result["result"]["data"]) == 0
-    response = logoff_user(client)
-    assert response.status_code == 200
-    result = response.json
-    assert "session" in result["result"]
+    _ = logoff_user(client)
