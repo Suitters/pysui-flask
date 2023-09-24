@@ -224,6 +224,7 @@ def _new_msig_reg(
 
             # Create the msig user account
             msig_configs[index].account.config.address = bmsig.address
+            msig_configs[index].account.config.public_key = ""
             msig_user: list[User] = _new_user_reg(
                 user_configs=[msig_configs[index].account],
                 defer_commit=True,

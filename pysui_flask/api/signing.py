@@ -13,11 +13,13 @@
 
 """Execution module."""
 
+import base64
 from typing import Any, Union
 from pysui_flask.db_tables import (
     db,
     User,
     UserRole,
+    MultiSignature,
     SigningAs,
     SignerStatus,
     SignatureStatus,
@@ -31,10 +33,30 @@ from pysui_flask.api.xchange.payload import SigningResponse
 from pysui import SyncClient, SuiRpcResult
 from pysui.sui.sui_builders.base_builder import SuiRequestType
 from pysui.sui.sui_builders.exec_builders import ExecuteTransaction
+from pysui.sui.sui_types import SuiSignature
+from pysui.sui.sui_crypto import BaseMultiSig, SuiPublicKey
 
 
-def _gather_msig_signature():
+def _gather_msig_signature(
+    *, track: SignatureTrack, msig_acct: MultiSignature
+) -> str:
     """."""
+    # Get member sigs
+    member_sigs = [SuiSignature(req.signature) for req in track.requests]
+    # Build a crypto BaseMultiSig from db
+    base_msig = cmn.construct_multisig(msig_acct)
+    sig_pkeys: list[SuiPublicKey] = []
+    for sig_req in track.requests:
+        pkb = base64.b64decode(sig_req.signer_public_key)
+        for bpkey in base_msig.public_keys:
+            if bpkey.key_bytes == pkb[1:]:
+                sig_pkeys.append(bpkey)
+                break
+    if len(sig_pkeys) != len(track.requests):
+        raise ValueError("Msig member mismatch")
+
+    signature = base_msig.signature_from(sig_pkeys, member_sigs)
+    return signature.value
 
 
 def _gather_address_and_signatures(
@@ -54,8 +76,12 @@ def _gather_address_and_signatures(
             if regs.signing_as == SigningAs.tx_sender:
                 sigs.append(regs.signature)
     # Else multisig
-    else:
-        pass
+    elif sender.user_role == UserRole.multisig:
+        sigs.append(
+            _gather_msig_signature(
+                track=track, msig_acct=sender.multisig_configuration
+            )
+        )
 
     # If sponsor identified
     if track.explicit_sponsor:
@@ -67,8 +93,12 @@ def _gather_address_and_signatures(
                 if regs.signing_as == SigningAs.tx_sponsor:
                     sigs.append(regs.signature)
         # Else multisig
-        else:
-            pass
+        elif sponsor.user_role == UserRole.multisig:
+            sigs.append(
+                _gather_msig_signature(
+                    track=track, msig_acct=sponsor.multisig_configuration
+                )
+            )
 
     return client, sender, sigs
 
@@ -142,8 +172,10 @@ def _update_tracker(
             dcount: int = 0
             # Tally
             for areq in track.requests:
-                scount += 1 if areq.status == SignatureStatus.signed else 0
-                dcount += 1 if areq.status == SignatureStatus.denied else 0
+                # if areq.status == SignatureStatus.signed:
+                #     scount += 1
+                scount += 1 if areq.status == SignerStatus.signed else 0
+                dcount += 1 if areq.status == SignerStatus.denied else 0
             # All denied, set and return
             if dcount == rlen:
                 track.status = SignatureStatus.denied

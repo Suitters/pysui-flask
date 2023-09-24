@@ -24,7 +24,7 @@ from pysui_flask.api.xchange.payload import TransactionIn, MultiSig
 from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.db_tables import User, UserRole, SigningAs, MultiSignature
 from pysui import SyncClient, SuiConfig, SuiAddress
-from pysui.sui.sui_crypto import SuiPublicKey, BaseMultiSig
+from pysui.sui.sui_crypto import SuiPublicKey, BaseMultiSig, SignatureScheme
 from pysui.sui.sui_types.address import valid_sui_address
 from pysui.sui.sui_txn import SyncTransaction, SigningMultiSig
 
@@ -63,7 +63,7 @@ def client_for_account_action(account_key: str) -> tuple[SyncClient, User]:
     if user:
         if not user.configuration.active_address:
             raise APIError(
-                f"Account {account_key} does not have public_key registered.",
+                f"Account {account_key} does not have active address registered.",
                 ErrorCodes.PYSUI_MISSING_PUBLIC_KEY,
             )
         return client_for_account(account_key, user), user
@@ -229,33 +229,41 @@ class SignersRes:
         return []
 
 
+def construct_multisig(msig_acct: MultiSignature) -> BaseMultiSig:
+    """."""
+    base_pkeys: list[SuiPublicKey] = []
+    base_weights: list[int] = []
+    for member in msig_acct.multisig_members:
+        base_weights.append(member.weight)
+        user: User = User.query.filter(
+            User.account_key == member.owner_id
+        ).one()
+        pkb = base64.b64decode(user.configuration.public_key)
+        base_pkeys.append(SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:]))
+    return BaseMultiSig(base_pkeys, base_weights, msig_acct.threshold)
+
+
 def construct_sigblock_entry(sig_req: Union[User, MultiSigRes]) -> Any:
     """."""
     # Straight forward user
     if isinstance(sig_req, User):
         return SuiAddress(sig_req.configuration.active_address)
     # Otherwise create the Base MultiSig
-    base_pkeys: list[SuiPublicKey] = []
-    base_weights: list[int] = []
-    for member in sig_req.msig_account.multisig_members:
-        base_weights.append(member.weight)
-        user: User = User.query.filter(
-            User.account_key == member.owner_id
-        ).one()
-        pkb = base64.b64decode(user.configuration.public_key)
-        base_pkeys.append(SuiPublicKey(pkb[0], pkb[1:]))
-    base_msig = BaseMultiSig(
-        base_pkeys, base_weights, sig_req.msig_account.threshold
-    )
+    base_msig = construct_multisig(sig_req.msig_account)
 
     # Create the signing multisig
     if sig_req.msig_signers:
         sig_pkeys: list[SuiPublicKey] = []
         for user in sig_req.msig_signers:
             pkb = base64.b64decode(user.configuration.public_key)
-            sig_pkeys.append(SuiPublicKey(pkb[0], pkb[1:]))
+            for bpkey in base_msig.public_keys:
+                if bpkey.key_bytes == pkb[1:]:
+                    sig_pkeys.append(bpkey)
+                    break
+        if len(sig_pkeys) != len(sig_req.msig_signers):
+            raise ValueError("Msig member mismatch")
     else:
-        sig_pkeys = base_pkeys
+        sig_pkeys = base_msig.public_keys
     return SigningMultiSig(base_msig, sig_pkeys)
 
 
@@ -307,7 +315,7 @@ def _valid_multisig_account(msig_acc: MultiSig) -> MultiSigRes:
                 ErrorCodes.PYSUI_INVALID_MS_MEMBER_KEY,
             )
         # Are their weights enough?
-        elif accum_weight < msig_base.threshold:
+        elif accum_weight < msig_base.msig_account.threshold:
             raise APIError(
                 f"MultiSig singer combined weight below threshold",
                 ErrorCodes.PYSUI_MS_MEMBER_WEIGHT_BELOW_THRESHOLD,
