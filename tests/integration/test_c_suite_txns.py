@@ -123,53 +123,7 @@ def test_pysui_tx_execute(client: FlaskClient, sui_client: SyncClient):
     result = response.json
     assert len(result["result"]["accounts_posted"]) == 1
     _ = logoff_user(client)
-
-
-def test_sender_is_requestor_execute(
-    client: FlaskClient, sui_client: SyncClient
-):
-    """Test execution after signing."""
-    rfilt = SignRequestFilter(pending=True)
-    _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.get(
-        "/account/signing_requests",
-        json=rfilt.to_json(),
-    )
-    assert response.status_code == 200
-    result = response.json
-    assert len(result["result"]["signing_requests"]) == 1
-    sign_request = result["result"]["signing_requests"][0]
-    kp = sui_client.config.keypair_for_address(
-        sui_client.config.active_address
-    )
-    assert sign_request["status"] == 1
-    assert (
-        sign_request["signer_public_key"]
-        == base64.b64encode(kp.public_key.scheme_and_key()).decode()
-    )
-
-    payload = SigningResponse(
-        request_id=sign_request["id"],
-        accepted_outcome=SigningApproved(
-            public_key=sign_request["signer_public_key"],
-            active_address=sui_client.config.active_address.address,
-            signature=kp.new_sign_secure(sign_request.pop("tx_bytes")).value,
-        ),
-    )
-    response = client.post(
-        "/account/signing_request",
-        json=payload.to_json(),
-    )
-    assert response.status_code == 201
-    result = response.json
-    response = client.get(
-        "/account/signing_requests",
-        json=rfilt.to_json(),
-    )
-    assert response.status_code == 200
-    result = response.json
-    assert not result["result"]["signing_requests"]
-    _ = logoff_user(client)
+    response = sign_request_for(client, sui_client, USER_LOGIN_CREDS)
 
 
 def test_transactions(client: FlaskClient):
@@ -338,3 +292,12 @@ def test_pysui_tx_with_msig(client: FlaskClient, sui_client: SyncClient):
     assert response.status_code == 201
     result = response.json
     assert result["result"]["signature_response"] == "signed_and_executed"
+    _ = login_user(client, MSIG2_LOGIN_CREDS)
+    response = client.get(
+        "/account/pysui_get_txn",
+        json=json.dumps({}),
+    )
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["transactions"]
+    _ = logoff_user(client)

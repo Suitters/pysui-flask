@@ -151,3 +151,19 @@ def test_msig_login(client: FlaskClient):
     result = response.json
     assert len(result["result"]["data"]) == 0
     _ = logoff_user(client)
+
+
+def test_pysui_fail_msig_setpubkey(client: FlaskClient):
+    """Fail changing multisig public key"""
+    response = login_user(client, MSIG_LOGIN_CREDS)
+    pubkey_wallet = {
+        "public_key": {
+            "key_scheme": "ED25519",
+            "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
+        }
+    }
+    response = client.post(
+        "/account/public_key", json=json.dumps(pubkey_wallet)
+    )
+    check_error_expect(response, -1005)
+    _ = logoff_user(client)

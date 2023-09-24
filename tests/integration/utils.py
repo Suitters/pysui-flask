@@ -16,6 +16,7 @@
 import base64
 import json
 from dataclasses import dataclass
+from typing import Any
 from dataclasses_json import dataclass_json
 from flask.testing import FlaskClient
 from pysui import SyncClient, SuiAddress
@@ -68,7 +69,7 @@ def check_error_expect(response, ecode):
     assert response.json["error_code"] == ecode
 
 
-def login_user(client: FlaskClient, credentials: dict):
+def login_user(client: FlaskClient, credentials: dict) -> Any:
     """Login any user."""
     return client.get("/account/login", json=json.dumps(credentials))
 
@@ -81,15 +82,25 @@ def account_data(client: FlaskClient) -> PysuiAccount:
     return PysuiAccount.from_dict(result["result"]["account"])
 
 
-def logoff_user(client: FlaskClient):
+def logoff_user(client: FlaskClient) -> Any:
     """Login any user."""
     return client.get("/account/logoff", json=json.dumps({}))
 
 
 def sign_request_for(
     client: FlaskClient, sui_client: SyncClient, credentials: dict
-):
-    """."""
+) -> Any:
+    """Encapsulate signing for transaction.
+
+    :param client: Flask test client
+    :type client: FlaskClient
+    :param sui_client: pysui synchronous client
+    :type sui_client: SyncClient
+    :param credentials: sign on credentials
+    :type credentials: dict
+    :return: Flask response
+    :rtype: _type_
+    """
     _ = login_user(client, credentials)
     acc_data: PysuiAccount = account_data(client)
     rfilt = SignRequestFilter(pending=True)
