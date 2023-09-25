@@ -22,7 +22,13 @@ import hashlib
 from typing import Optional, Union, Any
 from pysui_flask.api.xchange.payload import TransactionIn, MultiSig
 from pysui_flask.api_error import APIError, ErrorCodes
-from pysui_flask.db_tables import User, UserRole, SigningAs, MultiSignature
+from pysui_flask.db_tables import (
+    User,
+    UserRole,
+    SigningAs,
+    MultiSignature,
+    MultiSigStatus,
+)
 from pysui import SyncClient, SuiConfig, SuiAddress
 from pysui.sui.sui_crypto import SuiPublicKey, BaseMultiSig, SignatureScheme
 from pysui.sui.sui_types.address import valid_sui_address
@@ -58,7 +64,15 @@ def client_for_account(
 
 
 def client_for_account_action(account_key: str) -> tuple[SyncClient, User]:
-    """."""
+    """Construct client with intent of executing a pysui action.
+
+    :param account_key: Requestinig account used to construct connection with
+    :type account_key: str
+    :raises APIError: If no active-address, due to not having public key, available
+    :raises APIError: Can not find account key
+    :return: A tuple of the pysui client and the user record from db
+    :rtype: tuple[SyncClient, User]
+    """
     user: User = User.query.filter(User.account_key == account_key).one()
     if user:
         if not user.configuration.active_address:
@@ -81,7 +95,15 @@ def deser_transaction(client: SyncClient, txb_base64: str) -> SyncTransaction:
 def ready_transaction(
     client: SyncClient, ctx: TransactionIn
 ) -> SyncTransaction:
-    """."""
+    """Deserialize the transaction builder.
+
+    :param client: The pysui client
+    :type client: SyncClient
+    :param ctx: The payload containing the serialized transaction builder
+    :type ctx: TransactionIn
+    :return: A synchronous pysui Transaction with TransactionBuilder
+    :rtype: SyncTransaction
+    """
     sync_tx = deser_transaction(client, ctx.tx_builder)
 
     return sync_tx
@@ -100,7 +122,7 @@ def validate_object_id(object_id: str, except_if_false: bool = False):
 
 
 def str_to_hash_hex(indata: str) -> str:
-    """."""
+    """Convert a string to 32 byte hash."""
     encoded_pwd = str.encode(indata)
     return hashlib.blake2b(encoded_pwd, digest_size=32).hexdigest()
 
@@ -230,21 +252,33 @@ class SignersRes:
 
 
 def construct_multisig(msig_acct: MultiSignature) -> BaseMultiSig:
-    """."""
+    """Construct a pysui BaseMultiSig from db representation.
+
+    :param msig_acct: The db construct (row)
+    :type msig_acct: MultiSignature
+    :raises ValueError: If the state of the db construct prevents construction
+    :return: A pysui BaseMultiSig
+    :rtype: BaseMultiSig
+    """
     base_pkeys: list[SuiPublicKey] = []
     base_weights: list[int] = []
-    for member in msig_acct.multisig_members:
-        base_weights.append(member.weight)
-        user: User = User.query.filter(
-            User.account_key == member.owner_id
-        ).one()
-        pkb = base64.b64decode(user.configuration.public_key)
-        base_pkeys.append(SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:]))
-    return BaseMultiSig(base_pkeys, base_weights, msig_acct.threshold)
+    if msig_acct.status == MultiSigStatus.confirmed:
+        for member in msig_acct.multisig_members:
+            # if member.status == Ms
+            base_weights.append(member.weight)
+            user: User = User.query.filter(
+                User.account_key == member.owner_id
+            ).one()
+            pkb = base64.b64decode(user.configuration.public_key)
+            base_pkeys.append(SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:]))
+        return BaseMultiSig(base_pkeys, base_weights, msig_acct.threshold)
+    raise ValueError(
+        f"{msig_acct.user.user_name_or_email} multisig state is not confirmed  {msig_acct.status.name}"
+    )
 
 
 def construct_sigblock_entry(sig_req: Union[User, MultiSigRes]) -> Any:
-    """."""
+    """Create the signature block sender or sponsor for pysui Transaction."""
     # Straight forward user
     if isinstance(sig_req, User):
         return SuiAddress(sig_req.configuration.active_address)
@@ -268,7 +302,8 @@ def construct_sigblock_entry(sig_req: Union[User, MultiSigRes]) -> Any:
 
 
 def construct_sender(sig_req: SignersRes) -> Any:
-    """."""
+    """Construct sender from requestor or provided explicit sender."""
+    # FIXME: Assumes that the requestor is not multisig
     if not sig_req.sender:
         return SuiAddress(sig_req.requestor.configuration.active_address)
     return construct_sigblock_entry(sig_req.sender)
@@ -369,30 +404,3 @@ class CustomJSONEncoder(json.JSONEncoder):  # <<-- Add this custom encoder
         if isinstance(o, enum.Enum):
             return o.value
         return super().default(o)
-
-
-def flatten_users(
-    accounts: dict[str, User]
-) -> Union[list[tuple[SigningAs, User]], APIError]:
-    """Splay out all account references associated to sender and or sponsor of transactions.
-
-    :param accounts: Identifies sender and possibly sponsor
-    :type accounts: dict[str, User]
-    :return: List of tuples identifying 'signing as' sender batch or sponsor
-    :rtype: Union[list[tuple[SigningAs, User]], APIError]
-    """
-    result_list: list[tuple[SigningAs, User]] = []
-    if accounts["sender"]:
-        if accounts["sender"].user_role == UserRole.user:
-            result_list.append((SigningAs.tx_sender, accounts["sender"]))
-        elif accounts["sender"].user_role == UserRole.multisig:
-            pass
-    # TODO: This is exception
-    else:
-        pass
-    if accounts["sponsor"]:
-        if accounts["sponsor"].user_role == UserRole.user:
-            result_list.append((SigningAs.tx_sponsor, accounts["sponsor"]))
-        elif accounts["sender"].user_role == UserRole.multisig:
-            pass
-    return result_list

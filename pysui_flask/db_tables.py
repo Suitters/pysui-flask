@@ -70,7 +70,7 @@ class MsMemberStatus(enum.Enum):
     request_attestation = 1
     confirmed = 2
     denied = 3
-    deleted = 4
+    dropped = 4
 
 
 @dataclasses.dataclass
@@ -235,8 +235,6 @@ class MultiSigRequest(db.Model):
     )
     # This is the account that made the request
     membership_key: str = db.Column(db.String(44), nullable=False)
-    # This is the challenge phrase requiring signing
-    attestation_phrase: str = db.Column(db.String(64), nullable=False)
 
 
 @dataclasses.dataclass
