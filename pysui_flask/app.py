@@ -23,32 +23,13 @@ from pysui_flask.api_error import ErrorCodes, APIError
 from . import db
 import pysui_flask.config as config
 
-from pysui_flask.db_tables import *
-
 # Routes
 from .api.admin_route import admin_api
 from .api.account_route import account_api
 
-# Crypto
-from pysui.sui.sui_crypto import create_new_keypair
 
-
-def _pre_populate(app):
-    """Checks for at least the admin constructs."""
-    result: User = User.query.filter_by(
-        password=app.config["ADMIN_PASSWORD"]
-    ).first()
-    if not result:
-        _, kp = create_new_keypair()
-        user = User()
-        user.account_key = kp.serialize()
-        user.password = app.config["ADMIN_PASSWORD"]
-        user.user_name_or_email = app.config["ADMIN_NAME"]
-        user.user_role = UserRole.admin
-        db.session.add(user)
-        db.session.commit()
-    elif result.user_role != UserRole.admin:
-        raise SystemError("You've been hacked!")
+# user.password = app.config["ADMIN_PASSWORD"]
+# user.user_name_or_email = app.config["ADMIN_NAME"]
 
 
 app = Flask(__name__)
@@ -97,7 +78,6 @@ def create_app():
     db.init_app(app)
     with app.app_context() as actx:
         db.create_all()
-        _pre_populate(app)
     # Blueprint routes
     app.register_blueprint(admin_api)
     app.register_blueprint(account_api)

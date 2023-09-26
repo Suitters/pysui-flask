@@ -27,7 +27,6 @@ from pysui_flask import db
 from . import (
     account_api,
     User,
-    UserRole,
     SigningAs,
     SignerStatus,
     SignatureStatus,
@@ -156,34 +155,6 @@ def account_logoff():
     session.pop("user_key")
     session.pop("user_logged_in")
     return {"session": f"{session.sid} ended"}
-
-
-@account_api.post("/public_key")
-def set_publickey():
-    """Set my own public key."""
-    _user_login_required()
-    in_data = json.loads(request.get_json())
-    user: User = User.query.filter(
-        User.account_key == session["user_key"]
-    ).one()
-    # Can not change if part of multisig
-    if user.user_role == UserRole.multisig or user.multisig_member:
-        raise APIError(
-            f"{session['user_key']} is part of multisig, can't change public key",
-            ErrorCodes.PUBLICKEY_MULTISIG_MEMBER,
-        )
-    # Can not change if has signature associations
-    if _requested_filtered(session["user_key"], SignRequestFilter()):
-        raise APIError(
-            f"{session['user_key']} has signature requests",
-            ErrorCodes.PUBLICKEY_SIGNATURES_EXIST,
-        )
-    if "public_key" in in_data:
-        pk, addy = validate_public_key(in_data["public_key"])
-        user.configuration.public_key = pk
-        user.configuration.active_address = addy
-        db.session.commit()
-    return {"user_update": {"public_key": pk, "active_address": addy}}
 
 
 @account_api.get("/gas")

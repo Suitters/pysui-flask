@@ -16,7 +16,7 @@
 import base64
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 from dataclasses_json import dataclass_json
 from flask.testing import FlaskClient
 from pysui import SyncClient, SuiAddress
@@ -67,6 +67,18 @@ def check_error_expect(response, ecode):
     assert response.status_code == 200
     assert "error" in response.json
     assert response.json["error_code"] == ecode
+
+
+def login_admin(
+    client: FlaskClient, credentials: Optional[dict] = ADMIN_LOGIN_CREDS
+) -> Any:
+    """Login admin."""
+    return client.get("/admin/login", json=json.dumps(credentials))
+
+
+def logoff_admin(client: FlaskClient) -> Any:
+    """Login any user."""
+    return client.get("/admin/logoff", json=json.dumps({}))
 
 
 def login_user(client: FlaskClient, credentials: dict) -> Any:

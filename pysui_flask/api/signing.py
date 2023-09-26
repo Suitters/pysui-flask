@@ -15,17 +15,16 @@
 
 import base64
 from typing import Any, Union
+
 from pysui_flask.db_tables import (
     db,
     User,
-    UserRole,
     MultiSignature,
     SigningAs,
     SignerStatus,
     SignatureStatus,
     SignatureRequest,
     SignatureTrack,
-    TransactionResult,
 )
 import pysui_flask.api.common as cmn
 from pysui_flask.api.xchange.payload import SigningResponse
@@ -122,23 +121,19 @@ def _process_tracker(
                 request_type=SuiRequestType.WAITFORLOCALEXECUTION,
             )
         )
-        # Create or update a transaction request
-        tx_result = TransactionResult()
+        # Populate transaction data
         if result.is_ok():
-            tx_result.transaction_passed = True
-            tx_result.transaction_response = result.result_data.to_json()
+            track.transaction_passed = True
+            track.transaction_response = result.result_data.to_json()
         else:
-            tx_result.transaction_passed = False
-            tx_result.transaction_response = result.result_string
+            track.transaction_passed = False
+            track.transaction_response = result.result_string
         track.status = SignatureStatus.signed_and_executed
-        track.execution = tx_result
         db.session.commit()
     # Ready to shutdown
     elif track.status == SignatureStatus.denied:
-        tx_result = TransactionResult()
-        tx_result.transaction_passed = False
-        tx_result.transaction_response = "Signing denied."
-        track.execution = tx_result
+        track.transaction_passed = False
+        track.transaction_response = "Signing denied."
         db.session.commit()
     # Still waiting for signatures
     else:

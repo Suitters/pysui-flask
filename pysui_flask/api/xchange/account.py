@@ -33,46 +33,6 @@ from pysui.abstracts.client_keypair import SignatureScheme
 from pysui.sui.sui_constants import SUI_HEX_ADDRESS_STRING_LEN
 
 
-SUI_STANDARD_URI: dict[str, dict[str, str]] = {
-    "devnet": {
-        "rpc_url": "https://fullnode.devnet.sui.io:443",
-        "ws_url": "wss://fullnode.devnet.sui.io:443",
-    },
-    "testnet": {
-        "rpc_url": "https://fullnode.testnet.sui.io:443",
-        "ws_url": "wss://fullnode.testnet.sui.io:443",
-    },
-    "mainnet": {
-        "rpc_url": "https://fullnode.mainnet.sui.io:443",
-        "ws_url": "wss://fullnode.mainnet.sui.io:443",
-    },
-}
-
-
-class UserIn(Schema):
-    """Fields for user when requesting a new account in admin."""
-
-    username = fields.Str(
-        required=True, validate=validate.Length(min=4, max=254)
-    )
-    password = fields.Str(
-        required=True, validate=validate.Length(min=8, max=16)
-    )
-
-
-class ExplicitUri(Schema):
-    """Urls associated to the user account being added."""
-
-    rpc_url = fields.Url(required=True)
-    # ws_url = fields.Url(required=False)
-    ws_url = fields.Str(
-        required=False,
-        allow_none=True,
-        load_default=""
-        # validate=validate.URL(schemes=["ws", "wss"]),
-    )
-
-
 def _public_key_for_base64(
     *, wallet_key: str, key_scheme: str
 ) -> tuple[str, str]:
@@ -117,6 +77,7 @@ def validate_public_key(in_pubkey) -> tuple[str, str]:
                 f"Wallet public key requires 'wallet_key' and 'key_scheme'"
             )
         pk, addy = _public_key_for_base64(**in_pubkey)
+    # FIXME: Public key lengths differ
     elif isinstance(in_pubkey, str):
         if len(in_pubkey) == 44:
             pk = in_pubkey
@@ -124,44 +85,34 @@ def validate_public_key(in_pubkey) -> tuple[str, str]:
     return pk, addy
 
 
-class Config(Schema):
-    """Configuration setting when adding new account."""
+class UserIn(Schema):
+    """Fields for user when requesting a new account in admin."""
 
+    username = fields.Str(
+        required=True, validate=validate.Length(min=4, max=254)
+    )
+    password = fields.Str(
+        required=True, validate=validate.Length(min=8, max=16)
+    )
     public_key = fields.Str(
-        required=False,
-        load_default="",
-        # validate=validate.Length(equal=44),
+        required=True,
+        validate=validate.Length(min=44, max=48),
     )
-    address = fields.Str(
-        required=False,
-        load_default="",
-        # validate=validate.Length(equal=66)
-    )
-    urls = fields.Nested(ExplicitUri, many=False, required=True)
+    address = fields.Str(required=True, validate=validate.Length(equal=66))
 
     @pre_load
     def fix_inbounds(self, in_bound, **kwargs):
         """."""
         if isinstance(in_bound, dict) and in_bound:
-            if "environment" in in_bound and "urls" in in_bound:
-                raise exceptions.ValidationError(
-                    f"Specifying environment and urls is mutually exclusive"
-                )
-            if "environment" in in_bound:
-                in_bound["urls"] = SUI_STANDARD_URI.get(
-                    in_bound.pop("environment")
-                )
-            if "public_key" in in_bound and in_bound["public_key"]:
-                try:
-                    pk, addy = validate_public_key(in_bound["public_key"])
-                    in_bound["address"] = addy
-                    in_bound["public_key"] = pk
-                except Exception as exc:
-                    raise exceptions.ValidationError(exc.args[0])
-            else:
-                in_bound["address"] = ""
-                in_bound["public_key"] = ""
-
+            try:
+                pk, addy = validate_public_key(in_bound["public_key"])
+                in_bound["address"] = addy
+                if len(pk) != 44:
+                    pkl = len(pk)
+                    print(pkl)
+                in_bound["public_key"] = pk
+            except Exception as exc:
+                raise exceptions.ValidationError(exc.args[0])
         else:
             raise exceptions.ValidationError(
                 f"Config expects a map with data found {in_bound}"
@@ -174,7 +125,6 @@ class AccountSetup(Schema):
     """Primary wrapper for account setup."""
 
     user = fields.Nested(UserIn, many=False, required=True)
-    config = fields.Nested(Config, many=False, required=True)
 
 
 # For performance
@@ -195,7 +145,7 @@ class MultiSig(Schema):
     """Member list of multisig."""
 
     members = fields.List(fields.Nested(MultiSigMember), required=True)
-    # members = fields.List(fields.Str, required=True)
+    name = fields.Str(required=True, validate=validate.Length(min=4, max=254))
     threshold = fields.Int(
         required=True, strict=True, validate=validate.Range(min=1, max=2550)
     )
@@ -242,23 +192,6 @@ class InUser:
 
     username: str
     password: str
-
-
-@dataclass_json
-@dataclass
-class InUri:
-    """Url settings in user account dataclass."""
-
-    rpc_url: str
-    ws_url: Optional[str] = ""
-
-
-@dataclass_json
-@dataclass
-class InConfig:
-    """Configuration setting dataclass for new account."""
-
-    urls: InUri
     public_key: Optional[str] = ""
     address: Optional[str] = ""
 
@@ -269,7 +202,6 @@ class InAccountSetup:
     """Container for new user account setup."""
 
     user: InUser
-    config: InConfig
 
 
 # For performance, build the schema for re-use
@@ -310,6 +242,7 @@ class InMultiSig:
 
     members: list[InMultiSigMember]
     threshold: int
+    name: str
     requires_attestation: Optional[bool]
 
 
@@ -357,9 +290,10 @@ class OutConfig(Schema):
 class OutUser(Schema):
     """New user account dataclass."""
 
-    user_name = fields.Str(data_key="user_name_or_email")
+    user_name = fields.Str()
     account_key = fields.Str()
-    user_role = fields.Int()
+    public_key = fields.Str()
+    active_address = fields.Str()
     creation_date = fields.Str()
     configuration = fields.Nested(OutConfig, many=False, unknown="exclude")
 
@@ -368,19 +302,15 @@ if __name__ == "__main__":
     good_content = [
         {
             "account": {
-                "user": {"username": "FrankC0", "password": "Oxnard Gimble"},
-                "config": {
-                    "public_key": None,
-                    # "private_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
-                    # "public_key": {
-                    #     "key_scheme": "ED25519",
-                    #     "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
-                    # },
-                    # "environment": "devnet",
-                    "urls": {
-                        "rpc_url": "https://fullnode.devnet.sui.io:443",
-                        "ws_url": None,
+                "user": {
+                    "username": "FrankC0",
+                    "password": "Oxnard Gimble",
+                    # "public_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
+                    "public_key": {
+                        "key_scheme": "ED25519",
+                        "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
                     },
+                    # "environment": "devnet",
                 },
             },
             "multi_sig": {
@@ -395,6 +325,7 @@ if __name__ == "__main__":
                     },
                 ],
                 "threshold": 2,
+                "name": "FrankC0",
                 "requires_attestation": True,
             },
         }

@@ -20,11 +20,11 @@ from datetime import datetime
 import json
 import hashlib
 from typing import Optional, Union, Any
+from flask import current_app
 from pysui_flask.api.xchange.payload import TransactionIn, MultiSig
 from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.db_tables import (
     User,
-    UserRole,
     SigningAs,
     MultiSignature,
     MultiSigStatus,
@@ -40,17 +40,12 @@ def client_for_account(
 ) -> SyncClient:
     """Construct a client from a user account configuration."""
     user = user or User.query.filter(User.account_key == account_key).one()
-    # user: User = User.query.filter(User.account_key == account_key).one()
     if user:
         try:
             cfg = SuiConfig.user_config(
-                rpc_url=user.configuration.rpc_url,
-                prv_keys=[],
-                ws_url=user.configuration.ws_url,
+                rpc_url=current_app.config["RPC_URL"],
             )
-            cfg.set_active_address(
-                SuiAddress(user.configuration.active_address)
-            )
+            cfg.set_active_address(SuiAddress(user.active_address))
             return SyncClient(cfg)
         except Exception as exc:
             raise APIError(
@@ -75,7 +70,7 @@ def client_for_account_action(account_key: str) -> tuple[SyncClient, User]:
     """
     user: User = User.query.filter(User.account_key == account_key).one()
     if user:
-        if not user.configuration.active_address:
+        if not user.active_address:
             raise APIError(
                 f"Account {account_key} does not have active address registered.",
                 ErrorCodes.PYSUI_MISSING_PUBLIC_KEY,
@@ -144,9 +139,7 @@ def verify_credentials(
     :rtype: User
     """
     # Find user
-    result: User = User.query.filter(
-        User.user_name_or_email == username
-    ).first()
+    result: User = User.query.filter(User.user_name == username).first()
     # Verify credentials
     if result:
         pwd_hashed = str_to_hash_hex(user_password)
@@ -312,25 +305,19 @@ def construct_sender(sig_req: SignersRes) -> Any:
 def _valid_account(acc_key: str) -> User:
     """."""
     user: User = User.query.filter(User.account_key == acc_key).one()
-    if (
-        user.user_role == UserRole.admin
-        or not user.configuration.active_address
-    ):
+    if not user.active_address:
         raise APIError(f"Not a valid account", ErrorCodes.INVALID_ACCOUNT_ROLE)
     return user
 
 
+# FIXME: Refactor for MultiSignature
 def _valid_multisig_account(msig_acc: MultiSig) -> MultiSigRes:
     """."""
-    user: User = _valid_account(msig_acc.msig_account)
-    if user.user_role != UserRole.multisig or not user.multisig_configuration:
-        raise APIError(
-            f"Invalid multisig account", ErrorCodes.INVALID_ACCOUNT_ROLE
-        )
+    msig_account = MultiSignature.query.filter(
+        MultiSignature.multisig_name == msig_acc.msig_name
+    ).one()
     # Have base
-    msig_base: MultiSigRes = MultiSigRes(
-        msig_account=user.multisig_configuration
-    )
+    msig_base: MultiSigRes = MultiSigRes(msig_account=msig_account)
     # If we specify subset signers, validate they exist
     # as members. Also, accumulate their weight
     if msig_acc.msig_signers:
@@ -338,7 +325,7 @@ def _valid_multisig_account(msig_acc: MultiSig) -> MultiSigRes:
         found = 0
         sub_signers: list[User] = []
         for member in msig_base.msig_account.multisig_members:
-            if member.owner_id in msig_acc.msig_signers:
+            if member.user.user_name in msig_acc.msig_signers:
                 found += 1
                 accum_weight += member.weight
                 sub_signers.append(_valid_account(member.owner_id))

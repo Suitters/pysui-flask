@@ -26,9 +26,9 @@ class MultiSig:
     Optional msig_signers identifies member subset
     """
 
-    # This is the account_key for a MultiSignature base
-    msig_account: str
-    # Optionally these are account_keys for the msig members who are
+    # This is the name of the MultiSignature base
+    msig_name: str
+    # Optionally these are names for the msig members who are
     # required to sign. If None, all members must sign
     msig_signers: Optional[list[str]] = None
 

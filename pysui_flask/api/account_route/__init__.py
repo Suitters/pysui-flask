@@ -16,7 +16,6 @@
 from flask import Blueprint
 from pysui_flask.db_tables import (
     User,
-    UserRole,
     SigningAs,
     SignerStatus,
     SignatureStatus,

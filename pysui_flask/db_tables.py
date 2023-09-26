@@ -22,14 +22,6 @@ from . import db
 # from flask.json import JSONEncoder
 
 
-class UserRole(enum.Enum):
-    """Extend as needed."""
-
-    admin = 1
-    user = 2
-    multisig = 3
-
-
 class SignatureStatus(enum.Enum):
     """Extend as needed."""
 
@@ -88,40 +80,20 @@ class User(db.Model):
     # One way hashed value from password text
     password: str = db.Column(db.String(64), nullable=False)
     # user email or string, must be unique clear
-    user_name_or_email: str = db.Column(db.String(254), nullable=False)
-    # Encode a role
-    user_role: int = db.Column(db.Enum(UserRole), nullable=False)
+    user_name: str = db.Column(db.String(254), nullable=False)
+    # Addresses and keys
+    public_key: str = db.Column(db.String(44), nullable=True)
+    # The active_address is derived
+    active_address: str = db.Column(db.String(66), nullable=True)
+
     # When registered
     creation_date: datetime = db.Column(
         db.DateTime(timezone=True), default=datetime.utcnow
     )
-    # May or may not have a configuration
-    configuration = db.relationship(
-        "UserConfiguration",
-        backref="user",
-        lazy=True,
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
     # May or may not have a multisig config
-    multisig_configuration = db.relationship(
-        "MultiSignature",
-        backref="user",
-        lazy=True,
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
     # May or may not be a member of multisig
     multisig_member = db.relationship(
         "MultiSigMember",
-        backref="user",
-        lazy=True,
-        uselist=True,
-        cascade="all, delete-orphan",
-    )
-    # May or may not have multi-sig join requests
-    multisig_requests = db.relationship(
-        "MultiSigRequest",
         backref="user",
         lazy=True,
         uselist=True,
@@ -135,30 +107,6 @@ class User(db.Model):
         uselist=True,
         cascade="all, delete-orphan",
     )
-
-
-@dataclasses.dataclass
-class UserConfiguration(db.Model):
-    """Configuration for instantiating SuiConfig for User."""
-
-    id: int = db.Column(
-        "configuration_id",
-        db.Integer,
-        nullable=False,
-        primary_key=True,
-        autoincrement=True,
-    )
-    # Owner (user) ID relationship
-    owner_id: str = db.Column(
-        db.String, db.ForeignKey("user.account_key"), nullable=False
-    )
-    # Urls
-    rpc_url: str = db.Column(db.String(254), nullable=False)
-    ws_url: str = db.Column(db.String(254), nullable=True)
-    # Addresses and keys
-    # The active_address gets set when a multisig is built
-    public_key: str = db.Column(db.String(44), nullable=True)
-    active_address: str = db.Column(db.String(66), nullable=True)
 
 
 # Multi-Sig
@@ -175,11 +123,15 @@ class MultiSignature(db.Model):
         primary_key=True,
         autoincrement=True,
     )
-    # Account (user) owner ID of the MultiSig
-    owner_id: str = db.Column(
-        db.String, db.ForeignKey("user.account_key"), nullable=False
-    )
+    # mulsig name
+    multisig_name: str = db.Column(db.String(254), nullable=False)
+
+    # Status of construct
     status: int = db.Column(db.Enum(MultiSigStatus), nullable=False)
+    # The active_address is derived
+    active_address: str = db.Column(db.String(66), nullable=True)
+    # Threshold for signing
+    threshold: int = db.Column(db.Integer, nullable=False)
     # Contains one or more members
     multisig_members = db.relationship(
         "MultiSigMember",
@@ -188,7 +140,6 @@ class MultiSignature(db.Model):
         uselist=True,
         cascade="all, delete-orphan",
     )
-    threshold: int = db.Column(db.Integer, nullable=False)
 
 
 @dataclasses.dataclass
@@ -215,28 +166,6 @@ class MultiSigMember(db.Model):
     status: int = db.Column(db.Enum(MsMemberStatus), nullable=False)
 
 
-# Request queues
-
-
-@dataclasses.dataclass
-class MultiSigRequest(db.Model):
-    """MultiSignature base member requesst queue."""
-
-    id: int = db.Column(
-        "ms_request_id",
-        db.Integer,
-        nullable=False,
-        primary_key=True,
-        autoincrement=True,
-    )
-    # The user/account the request is for
-    member_id: str = db.Column(
-        db.String, db.ForeignKey("user.account_key"), nullable=False
-    )
-    # This is the account that made the request
-    membership_key: str = db.Column(db.String(44), nullable=False)
-
-
 @dataclasses.dataclass
 class SignatureTrack(db.Model):
     """Signature tracking table."""
@@ -260,14 +189,6 @@ class SignatureTrack(db.Model):
         uselist=True,
         cascade="all, delete-orphan",
     )
-    # Tracks Execution
-    execution = db.relationship(
-        "TransactionResult",
-        backref="signature_track",
-        lazy=True,
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
 
     # Set when either are not requestor
     explicit_sender: str = db.Column(db.String(44), nullable=True)
@@ -277,6 +198,9 @@ class SignatureTrack(db.Model):
     tx_bytes: str = db.Column(db.String(200000), nullable=False)
     # Status
     status: int = db.Column(db.Enum(SignatureStatus), nullable=False)
+    # Execution results
+    transaction_passed: bool = db.Column(db.Boolean, nullable=True)
+    transaction_response: str = db.Column(db.String(10240), nullable=True)
 
 
 @dataclasses.dataclass
@@ -314,24 +238,3 @@ class SignatureRequest(db.Model):
     # Control fields
     status: int = db.Column(db.Enum(SignerStatus), nullable=False)
     signature: str = db.Column(db.String(2048), nullable=True)
-
-
-@dataclasses.dataclass
-class TransactionResult(db.Model):
-    """Transaction tracking table."""
-
-    id: int = db.Column(
-        "txn_id",
-        db.Integer,
-        nullable=False,
-        primary_key=True,
-        autoincrement=True,
-    )
-    # This is backref to signtracker
-    tracking: str = db.Column(
-        db.String,
-        db.ForeignKey("signature_track.sig_track_id"),
-        nullable=False,
-    )
-    transaction_passed: bool = db.Column(db.Boolean, nullable=False)
-    transaction_response: str = db.Column(db.String(10240), nullable=False)

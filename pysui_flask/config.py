@@ -37,6 +37,7 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     SESSION_TYPE = os.environ.get("SESSION_TYPE")
     SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
+    RPC_URL = os.environ.get("RPC_URL")
     CONSTRAINTS = Constraints()
 
 

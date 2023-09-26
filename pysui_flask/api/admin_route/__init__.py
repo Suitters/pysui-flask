@@ -16,8 +16,6 @@
 from flask import Blueprint, session
 from pysui_flask.db_tables import (
     User,
-    UserRole,
-    UserConfiguration,
     MultiSigMember,
     MultiSignature,
     MsMemberStatus,

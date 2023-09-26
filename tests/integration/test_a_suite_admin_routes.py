@@ -12,11 +12,18 @@
 # -*- coding: utf-8 -*-
 
 """Pytest admin routes."""
+
+import base64
 import json
 
 from flask.testing import FlaskClient
 
-from tests.integration.utils import ADMIN_LOGIN_CREDS, check_error_expect
+from tests.integration.utils import (
+    ADMIN_LOGIN_CREDS,
+    check_error_expect,
+    login_admin,
+    logoff_admin,
+)
 
 from pysui import SyncClient
 from pysui.abstracts.client_keypair import SignatureScheme
@@ -38,23 +45,14 @@ def test_no_login(client: FlaskClient):
     check_error_expect(response, -5)
 
 
-def test_bad_content(client: FlaskClient):
-    """Validate error on bad login credentials."""
-    creds = {
-        "username": "fastfrank",
-        "password": "Slippery Slope",
-    }
-    response = client.get("/admin/login", data=json.dumps(creds))
-    check_error_expect(response, -5)
-
-
 def test_bad_admin_login(client: FlaskClient):
     """Validate error on bad login credentials."""
     creds = {
         "username": "fastfrank",
         "password": "Slippery Slope",
     }
-    response = client.get("/admin/login", json=json.dumps(creds))
+    response = login_admin(client, creds)
+    # response = client.get("/admin/login", json=json.dumps(creds))
     check_error_expect(response, -10)
 
 
@@ -64,14 +62,16 @@ def test_bad_credential_length(client: FlaskClient):
         "username": "fastfra",
         "password": "Slippery Slope",
     }
-    response = client.get("/admin/login", json=json.dumps(creds))
+    response = login_admin(client, creds)
+    # response = client.get("/admin/login", json=json.dumps(creds))
     check_error_expect(response, -10)
 
 
 # Valid login
 def test_admin_login(client: FlaskClient):
     """Validate good login credentials."""
-    response = client.get("/admin/login", json=json.dumps(ADMIN_LOGIN_CREDS))
+    response = login_admin(client)
+    # response = client.get("/admin/login", json=json.dumps(ADMIN_LOGIN_CREDS))
     assert response.status_code == 200
     result = response.json
     assert "result" in result and "session" in result["result"]
@@ -128,40 +128,20 @@ def test_admin_create_accounts(client: FlaskClient, sui_client: SyncClient):
     account_index = 1
     for kp in addys.values():
         pub_key = kp.public_key
+        publen = len(base64.b64encode(pub_key.scheme_and_key()).decode())
         goodies.append(
             {
                 "user": {
                     "username": "FrankC0" + str(account_index),
                     "password": "Oxnard Gimble",
-                },
-                "config": {
                     "public_key": {
                         "key_scheme": pub_key.scheme.sig_scheme,
                         "wallet_key": pub_key.pub_key,
-                    },
-                    "urls": {
-                        "rpc_url": rpc_url,
-                        "ws_url": "",
                     },
                 },
             }
         )
         account_index += 1
-    goodies.append(
-        {
-            "user": {
-                "username": "FrankC0" + str(account_index),
-                "password": "Oxnard Gimble",
-            },
-            "config": {
-                "public_key": None,
-                "urls": {
-                    "rpc_url": rpc_url,
-                    "ws_url": "",
-                },
-            },
-        }
-    )
     response = client.post("/admin/user_accounts", json=json.dumps(goodies))
     assert response.status_code == 201
     result = response.json

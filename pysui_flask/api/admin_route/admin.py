@@ -30,8 +30,6 @@ from pysui_flask import db
 from . import (
     admin_api,
     User,
-    UserRole,
-    UserConfiguration,
     MultiSignature,
     MultiSigMember,
     MultiSigStatus,
@@ -90,12 +88,18 @@ def admin_login():
         in_data = json.loads(request.get_json())
         # Get the User object of the admin role
         # Throws exception
-        user = cmn.verify_credentials(
-            username=in_data["username"],
-            user_password=in_data["password"],
-        )
-        session["name"] = in_data["username"]
-        session["admin_logged_in"] = True
+        pwd_hashed = cmn.str_to_hash_hex(in_data["password"])
+        if (
+            current_app.config["ADMIN_PASSWORD"] == pwd_hashed
+            and current_app.config["ADMIN_NAME"] == in_data["username"]
+        ):
+            session["name"] = in_data["username"]
+            session["admin_logged_in"] = True
+        else:
+            raise APIError(
+                f"Unable to verify credentials for {in_data['username']}",
+                ErrorCodes.CREDENTIAL_ERROR,
+            )
     return {"session": session.sid}
 
 
@@ -115,7 +119,6 @@ def _new_user_reg(
     *,
     user_configs: list[InAccountSetup],
     defer_commit: Optional[bool] = False,
-    for_role: Optional[UserRole] = UserRole.user,
 ) -> list[User]:
     """Process one or more new user registrations.
 
@@ -137,17 +140,10 @@ def _new_user_reg(
         user.account_key = kp.serialize()
         # Hash the user password
         user.password = cmn.str_to_hash_hex(user_config.user.password)
-        user.user_name_or_email = user_config.user.username
-        user.user_role = for_role
-
-        # Create the configuration
-        cfg = UserConfiguration()
-        cfg.rpc_url = user_config.config.urls.rpc_url
-        cfg.ws_url = user_config.config.urls.ws_url
-        cfg.public_key = user_config.config.public_key
-        cfg.active_address = user_config.config.address
-        # Create the relationship
-        user.configuration = cfg
+        user.user_name = user_config.user.username
+        # Specifics to user in current blockchain network
+        user.public_key = user_config.user.public_key
+        user.active_address = user_config.user.address
         # Add and commit
         db.session.add(user)
         users.append(user)
@@ -160,7 +156,6 @@ def _new_user_reg(
 def _new_msig_reg(
     *,
     msig_configs: list[InMultiSigSetup],
-    defer_commit: Optional[bool] = False,
 ) -> list[User]:
     """Process one or more multisig user accounts.
 
@@ -178,6 +173,7 @@ def _new_msig_reg(
         # Build the multisig constructs
         for index, ms_setup in enumerate(msig_configs):
             msig_entry: MultiSignature = MultiSignature()
+            msig_entry.multisig_name = ms_setup.multi_sig.name + "_msig"
             msig_entry.threshold = ms_setup.multi_sig.threshold
             msig_entry.status = (
                 MultiSigStatus.pending_attestation
@@ -193,7 +189,7 @@ def _new_msig_reg(
                     User.account_key == member.account_key,
                 ).first()
                 # Build the member
-                if user and user.user_role == UserRole.user:
+                if user:
                     ms_member: MultiSigMember = MultiSigMember()
                     ms_member.position = len(msig_members)
                     ms_member.weight = member.weight
@@ -223,16 +219,8 @@ def _new_msig_reg(
             msig_entry.multisig_members.extend(msig_members)
 
             # Create the msig user account
-            msig_configs[index].account.config.address = bmsig.address
-            msig_configs[index].account.config.public_key = ""
-            msig_user: list[User] = _new_user_reg(
-                user_configs=[msig_configs[index].account],
-                defer_commit=True,
-                for_role=UserRole.multisig,
-            )
-
-            msig_user[0].multisig_configuration = msig_entry
-            msig_results.append(msig_user[0])
+            msig_configs[index].active_address = bmsig.address
+            msig_results.append(msig_entry)
 
     # Commit it all
     db.session.commit()
@@ -250,10 +238,7 @@ def new_user_account():
         )
         # Check if user exists
         user = User.query.filter(
-            and_(
-                User.user_name_or_email.like(user_in.user.username),
-                User.user_role == UserRole.user,
-            )
+            User.user_name.like(user_in.user.username),
         ).first()
     except marshmallow.ValidationError as ve:
         _content_expected(ve.messages)
@@ -267,7 +252,7 @@ def new_user_account():
     user_persist = _new_user_reg(user_configs=[user_in])
     return {
         "created": {
-            "user_name": user_persist[0].user_name_or_email,
+            "user_name": user_persist[0].user_name,
             "account_key": user_persist[0].account_key,
         }
     }, 201
@@ -282,12 +267,9 @@ def new_multi_sig_account():
         msig_in: InMultiSigSetup = deserialize_msig_create(
             json.loads(request.get_json())
         )
-        # Check if user exists
+        # FIXME: Work this directly with MultiSignature table
         user = User.query.filter(
-            and_(
-                User.user_name_or_email.like(msig_in.account.user.username),
-                User.user_role == UserRole.user,
-            )
+            User.user_name.like(msig_in.account.user.username),
         ).first()
     except marshmallow.ValidationError as ve:
         _content_expected(ve.messages)
@@ -298,11 +280,11 @@ def new_multi_sig_account():
             ErrorCodes.USER_ALREADY_EXISTS,
         )
     # Create the new multisig user, configuration and members
-    msig_persist = _new_msig_reg(msig_configs=[msig_in])
+    msig_persist: list[MultiSignature] = _new_msig_reg(msig_configs=[msig_in])
     return {
         "created": {
-            "user_name": msig_persist[0].user_name_or_email,
-            "account_key": msig_persist[0].account_key,
+            "status": f"{msig_persist[0].status}",
+            "address": msig_persist[0].active_address,
         }
     }, 201
 
@@ -319,10 +301,7 @@ def new_user_accounts():
         # Check if user exists
         users = [
             User.query.filter(
-                and_(
-                    User.user_name_or_email.like(x.user.username),
-                    User.user_role == UserRole.user,
-                )
+                User.user_name.like(x.user.username),
             ).first()
             for x in users_in
         ]
@@ -342,7 +321,7 @@ def new_user_accounts():
     for users_persist in _new_user_reg(user_configs=users_in):
         user_result.append(
             {
-                "user_name": users_persist.user_name_or_email,
+                "user_name": users_persist.user_name,
                 "account_key": users_persist.account_key,
             }
         )
@@ -389,7 +368,7 @@ def query_user_accounts(page):
         page_count = user_count
 
     # users = User.query.filter(User.user_role == UserRole.user).all()
-    users = User.query.filter(User.user_role != UserRole.admin).paginate(
+    users = User.query.paginate(
         page=page,
         per_page=page_count,
         error_out=False,
