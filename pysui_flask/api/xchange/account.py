@@ -264,24 +264,14 @@ def deserialize_msig_create(
         return [_in_ms_setup.load(x) for x in outputs]
 
 
-class OutConfig(Schema):
-    """Configuration setting dataclass for new account."""
-
-    rpc_url = fields.Str()
-    public_key = fields.Str()
-    active_address = fields.Str()
-    ws_url = fields.Str()
-
-
 class OutUser(Schema):
-    """New user account dataclass."""
+    """User account dataclass for sending."""
 
     user_name = fields.Str()
     account_key = fields.Str()
     public_key = fields.Str()
     active_address = fields.Str()
     creation_date = fields.Str()
-    configuration = fields.Nested(OutConfig, many=False, unknown="exclude")
 
 
 if __name__ == "__main__":

@@ -128,7 +128,6 @@ def test_admin_create_accounts(client: FlaskClient, sui_client: SyncClient):
     account_index = 1
     for kp in addys.values():
         pub_key = kp.public_key
-        publen = len(base64.b64encode(pub_key.scheme_and_key()).decode())
         goodies.append(
             {
                 "user": {

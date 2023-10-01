@@ -19,6 +19,8 @@ import json
 from flask.testing import FlaskClient
 
 
-def test_read_gas(client: FlaskClient):
+def test_read_accounts(client: FlaskClient):
     """Validate error on non-JSON and empty request."""
-    response = client.get("/data/gas/0x2")
+    response = client.get("/data/accounts", json={})
+    assert response.status_code == 200
+    result = response.json
