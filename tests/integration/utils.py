@@ -41,25 +41,14 @@ MSIG2_LOGIN_CREDS: dict = {"username": "FrankC02", "password": "Oxnard Gimble"}
 
 @dataclass_json
 @dataclass
-class PysuiConfig:
-    """Configuration."""
-
-    rpc_url: str
-    public_key: str
-    active_address: str
-    ws_url: str
-
-
-@dataclass_json
-@dataclass
 class PysuiAccount:
     """Account."""
 
     user_name: str
     account_key: str
-    user_role: int
     creation_date: str
-    configuration: PysuiConfig
+    public_key: str
+    active_address: str
 
 
 def check_error_expect(response, ecode):
@@ -125,7 +114,7 @@ def sign_request_for(
     assert len(result["result"]["signing_requests"]) == 1
     sign_request = result["result"]["signing_requests"][0]
     kp = sui_client.config.keypair_for_address(
-        SuiAddress(acc_data.configuration.active_address)
+        SuiAddress(acc_data.active_address)
     )
     assert sign_request["status"] == 1
     assert (

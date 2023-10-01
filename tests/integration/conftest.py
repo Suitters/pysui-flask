@@ -47,6 +47,7 @@ def client() -> FlaskClient:
 
     with app.app_context():
         with app.test_client() as client:
+            client.application.config["RPC_URL"] = "http://0.0.0.0:9000"
             yield client
     wipe_clean()
 

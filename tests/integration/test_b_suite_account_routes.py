@@ -52,32 +52,9 @@ def test_no_ops(client: FlaskClient):
     response = login_user(client, BAD_OPS_USER_LOGIN_CREDS)
     assert response.status_code == 200
     response = client.get("/account/gas", json=json.dumps({"all": False}))
-    check_error_expect(response, -1001)
+    check_error_expect(response, -1)
     response = logoff_user(client)
     assert response.status_code == 200
-
-
-def test_set_publickey(client: FlaskClient):
-    """Test account with no public key can't execute those that require."""
-    response = login_user(client, BAD_OPS_USER_LOGIN_CREDS)
-    assert response.status_code == 200
-    pubkey_wallet = {
-        "public_key": {
-            "key_scheme": "ED25519",
-            "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
-        }
-    }
-    response = client.post(
-        "/account/public_key", json=json.dumps(pubkey_wallet)
-    )
-    assert response.status_code == 200
-    result = response.json
-    assert result["result"]["user_update"]
-    response = client.get("/account/gas", json=json.dumps({"all": False}))
-    assert response.status_code == 200
-    result = response.json
-    assert not result["result"]["data"]
-    response = logoff_user(client)
 
 
 # This session is used through end of module
@@ -98,7 +75,6 @@ def test_account_post_login_root(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert result["result"]["account"]["user_name"] == "FrankC015"
-    assert result["result"]["account"]["user_role"] == 2
     _ = logoff_user(client)
 
 
@@ -135,35 +111,4 @@ def test_get_object(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert result["result"]["code"] == "notExists"
-    _ = logoff_user(client)
-
-
-def test_msig_login(client: FlaskClient):
-    """Test logging in with the multisig account."""
-    # Login with multisig
-    response = login_user(client, MSIG_LOGIN_CREDS)
-    assert response.status_code == 200
-    result = response.json
-    assert "session" in result["result"]
-    # Get gas, should be empty
-    response = client.get("/account/gas", json=json.dumps({"all": False}))
-    assert response.status_code == 200
-    result = response.json
-    assert len(result["result"]["data"]) == 0
-    _ = logoff_user(client)
-
-
-def test_pysui_fail_msig_setpubkey(client: FlaskClient):
-    """Fail changing multisig public key"""
-    response = login_user(client, MSIG_LOGIN_CREDS)
-    pubkey_wallet = {
-        "public_key": {
-            "key_scheme": "ED25519",
-            "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
-        }
-    }
-    response = client.post(
-        "/account/public_key", json=json.dumps(pubkey_wallet)
-    )
-    check_error_expect(response, -1005)
     _ = logoff_user(client)

@@ -64,18 +64,18 @@ def _gather_address_and_signatures(
     """."""
     # With sender we also want the SuiClient specific
     # to their account and configuration
-    client, sender = cmn.client_for_account_action(
-        track.explicit_sender or track.requestor
+    client, sender = cmn.client_for_transaction(
+        track.explicit_sender or track.user.active_address
     )
     # Signature list
     sigs: list[str] = []
     # If sender not multi-sig than sig is in the track list
-    if sender.user_role == UserRole.user:
+    if isinstance(sender, User):
         for regs in track.requests:
             if regs.signing_as == SigningAs.tx_sender:
                 sigs.append(regs.signature)
     # Else multisig
-    elif sender.user_role == UserRole.multisig:
+    elif isinstance(sender, MultiSignature):
         sigs.append(
             _gather_msig_signature(
                 track=track, msig_acct=sender.multisig_configuration

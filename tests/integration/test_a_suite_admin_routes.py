@@ -192,25 +192,12 @@ def test_admin_create_msig(client: FlaskClient, sui_client: SyncClient):
     # msig_members = list(sui_client.config.addresses_and_keys.items())[0:3]
 
     msig_payload = {
-        "account": {
-            "user": {
-                "username": "Msig01",
-                "password": "Oxnard Gimble",
-            },
-            "config": {
-                "public_key": None,
-                "urls": {
-                    "rpc_url": rpc_url,
-                    "ws_url": "",
-                },
-            },
-        },
-        "multi_sig": {
-            "members": members,
-            "threshold": threshold,
-            "requires_attestation": False,
-        },
+        "members": members,
+        "threshold": threshold,
+        "name": "Msig01",
+        "requires_attestation": False,
     }
+
     response = client.post(
         "/admin/multi_sig_account", json=json.dumps(msig_payload)
     )

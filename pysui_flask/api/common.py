@@ -82,6 +82,43 @@ def client_for_account_action(account_key: str) -> tuple[SyncClient, User]:
     )
 
 
+def client_for_transaction(active_address: str) -> tuple[SyncClient, Any]:
+    """Construct client with intent of executing a pysui action.
+
+    :param active_address: Requesting (user or mutisig)
+    :type account_key: str
+    :raises APIError: If no active-address, due to not having public key, available
+    :raises APIError: Can not find account user or multisig for address
+    :return: A tuple of the pysui client and the user record from db
+    :rtype: tuple[SyncClient, User]
+    """
+    account: Any = User.query.filter(
+        User.active_address == active_address
+    ).one()
+    account = (
+        account
+        or MultiSignature.query.filter(
+            MultiSignature.active_address == active_address
+        ).one()
+    )
+    if account:
+        try:
+            cfg = SuiConfig.user_config(
+                rpc_url=current_app.config["RPC_URL"],
+            )
+            cfg.set_active_address(SuiAddress(active_address))
+            return SyncClient(cfg), account
+        except Exception as exc:
+            raise APIError(
+                exc.args[0],
+                ErrorCodes.PYSUI_ERROR_BASE,
+            )
+    raise APIError(
+        f"Account with address: {active_address} not known",
+        ErrorCodes.ACCOUNT_NOT_FOUND,
+    )
+
+
 def deser_transaction(client: SyncClient, txb_base64: str) -> SyncTransaction:
     """Construct a generic transaction builder."""
     return SyncTransaction(client, deserialize_from=txb_base64)
@@ -262,7 +299,7 @@ def construct_multisig(msig_acct: MultiSignature) -> BaseMultiSig:
             user: User = User.query.filter(
                 User.account_key == member.owner_id
             ).one()
-            pkb = base64.b64decode(user.configuration.public_key)
+            pkb = base64.b64decode(user.public_key)
             base_pkeys.append(SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:]))
         return BaseMultiSig(base_pkeys, base_weights, msig_acct.threshold)
     raise ValueError(
@@ -274,7 +311,7 @@ def construct_sigblock_entry(sig_req: Union[User, MultiSigRes]) -> Any:
     """Create the signature block sender or sponsor for pysui Transaction."""
     # Straight forward user
     if isinstance(sig_req, User):
-        return SuiAddress(sig_req.configuration.active_address)
+        return SuiAddress(sig_req.active_address)
     # Otherwise create the Base MultiSig
     base_msig = construct_multisig(sig_req.msig_account)
 
@@ -282,7 +319,7 @@ def construct_sigblock_entry(sig_req: Union[User, MultiSigRes]) -> Any:
     if sig_req.msig_signers:
         sig_pkeys: list[SuiPublicKey] = []
         for user in sig_req.msig_signers:
-            pkb = base64.b64decode(user.configuration.public_key)
+            pkb = base64.b64decode(user.public_key)
             for bpkey in base_msig.public_keys:
                 if bpkey.key_bytes == pkb[1:]:
                     sig_pkeys.append(bpkey)
@@ -298,15 +335,23 @@ def construct_sender(sig_req: SignersRes) -> Any:
     """Construct sender from requestor or provided explicit sender."""
     # FIXME: Assumes that the requestor is not multisig
     if not sig_req.sender:
-        return SuiAddress(sig_req.requestor.configuration.active_address)
+        return SuiAddress(sig_req.requestor.active_address)
     return construct_sigblock_entry(sig_req.sender)
 
 
-def _valid_account(acc_key: str) -> User:
+def _valid_account(active_address: str) -> User:
     """."""
-    user: User = User.query.filter(User.account_key == acc_key).one()
-    if not user.active_address:
-        raise APIError(f"Not a valid account", ErrorCodes.INVALID_ACCOUNT_ROLE)
+    user: User = User.query.filter(User.active_address == active_address).one()
+    if not user:
+        raise APIError(f"Not a valid account", ErrorCodes.ACCOUNT_NOT_FOUND)
+    return user
+
+
+def _valid_requestor(account_key: str) -> User:
+    """."""
+    user: User = User.query.filter(User.account_key == account_key).one()
+    if not user:
+        raise APIError(f"Not a valid account", ErrorCodes.ACCOUNT_NOT_FOUND)
     return user
 
 
@@ -314,7 +359,7 @@ def _valid_account(acc_key: str) -> User:
 def _valid_multisig_account(msig_acc: MultiSig) -> MultiSigRes:
     """."""
     msig_account = MultiSignature.query.filter(
-        MultiSignature.multisig_name == msig_acc.msig_name
+        MultiSignature.active_address == msig_acc.msig_account
     ).one()
     # Have base
     msig_base: MultiSigRes = MultiSigRes(msig_account=msig_account)
@@ -364,7 +409,7 @@ def verify_tx_signers_existence(
     *, requestor: str, payload: TransactionIn
 ) -> Union[SignersRes, APIError]:
     """."""
-    sig_res = SignersRes(requestor=_valid_account(requestor))
+    sig_res = SignersRes(requestor=_valid_requestor(requestor))
     # If the payload has no signers, requestor is signer and inferred sponsor
     if payload.have_signers:
         # If the sender signer is not None, it must be a valid account_key

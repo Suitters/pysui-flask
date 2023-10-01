@@ -26,8 +26,8 @@ class MultiSig:
     Optional msig_signers identifies member subset
     """
 
-    # This is the name of the MultiSignature base
-    msig_name: str
+    # This is the active-address of the MultiSignature base
+    msig_account: str
     # Optionally these are names for the msig members who are
     # required to sign. If None, all members must sign
     msig_signers: Optional[list[str]] = None
@@ -41,9 +41,9 @@ class Signers:
     If both sender and sponsor are None, the requestor is only signer.
     """
 
-    # Can be multi-sig, single account or None (default to requestor)
+    # Can be multi-sig, single active-address or None (default to requestor)
     sender: Optional[Union[MultiSig, str]] = None
-    # Can be multi-sig, single account or None (default to requestor)
+    # Can be multi-sig, single active-address or None (default to requestor)
     sponsor: Optional[Union[MultiSig, str]] = None
 
 

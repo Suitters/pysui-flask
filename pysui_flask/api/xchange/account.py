@@ -18,7 +18,7 @@ import base64
 import binascii
 import hashlib
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Any, Optional, Union
 from dataclasses_json import dataclass_json
 from marshmallow import (
     Schema,
@@ -171,18 +171,12 @@ class MultiSig(Schema):
 class MultiSigSetup(Schema):
     """Primary wrapper for account setup."""
 
-    # The msig user info
-    account = fields.Nested(AccountSetup, many=False, required=True)
-    # user = fields.Nested(UserIn, many=False, required=True)
-    # the msig config
-    # config = fields.Nested(Config, many=False, required=True)
-    # the msig
     multi_sig = fields.Nested(MultiSig, many=False, required=True)
 
 
 # For performance
-_ms_setup_schema = MultiSigSetup(many=False)
-_ms_setup_schemas = MultiSigSetup(many=True)
+_ms_setup_schema = MultiSig(many=False)
+_ms_setup_schemas = MultiSig(many=True)
 
 
 @dataclass_json
@@ -246,21 +240,13 @@ class InMultiSig:
     requires_attestation: Optional[bool]
 
 
-@dataclass_json
-@dataclass
-class InMultiSigSetup:
-    """Container for new user account setup."""
-
-    account: InAccountSetup
-    # config: InConfig
-    multi_sig: InMultiSig
-
-
 # For performance, build the schema for re-use
-_in_ms_account_setup = InMultiSigSetup.schema()
+_in_ms_setup = InMultiSig.schema()
 
 
-def deserialize_msig_create(in_data: Union[dict, list]) -> InMultiSigSetup:
+def deserialize_msig_create(
+    in_data: Union[dict, list]
+) -> Union[InMultiSig, list[InMultiSig]]:
     """Deserialize inbound multi-sig account data during setup.
 
     It is first passed through marshmallow for validation before
@@ -272,10 +258,10 @@ def deserialize_msig_create(in_data: Union[dict, list]) -> InMultiSigSetup:
     :rtype: InAccountSetup | list[InAccountSetup]
     """
     if isinstance(in_data, dict):
-        return InMultiSigSetup.from_dict(in_data)
+        return InMultiSig.from_dict(in_data)
     elif isinstance(in_data, list):
         outputs: list = _ms_setup_schemas.load(in_data)
-        return [_in_ms_account_setup.load(x) for x in outputs]
+        return [_in_ms_setup.load(x) for x in outputs]
 
 
 class OutConfig(Schema):
@@ -301,35 +287,22 @@ class OutUser(Schema):
 if __name__ == "__main__":
     good_content = [
         {
-            "account": {
-                "user": {
-                    "username": "FrankC0",
-                    "password": "Oxnard Gimble",
-                    # "public_key": "AIUPxQveY18QxhDDdTO0D0OD6PNV+et50068d1g/rIyl",
-                    "public_key": {
-                        "key_scheme": "ED25519",
-                        "wallet_key": "qo8AGl3wC0uqhRRAn+L2B+BhGpRMp1UByBi8LtZxG+U=",
-                    },
-                    # "environment": "devnet",
+            "members": [
+                {
+                    "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
+                    "weight": 1,
                 },
-            },
-            "multi_sig": {
-                "members": [
-                    {
-                        "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
-                        "weight": 1,
-                    },
-                    {
-                        "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
-                        "weight": 1,
-                    },
-                ],
-                "threshold": 2,
-                "name": "FrankC0",
-                "requires_attestation": True,
-            },
+                {
+                    "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
+                    "weight": 1,
+                },
+            ],
+            "threshold": 2,
+            "name": "FrankC0",
+            # "requires_attestation": False,
         }
     ]
+
     x = deserialize_msig_create(good_content)
     print(x)
     # print(x.to_json(indent=2))

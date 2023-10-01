@@ -41,7 +41,7 @@ import pysui_flask.api.common as cmn
 from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.api.xchange.account import (
     InAccountSetup,
-    InMultiSigSetup,
+    InMultiSig,
     OutUser,
     deserialize_user_create,
     deserialize_msig_create,
@@ -155,8 +155,8 @@ def _new_user_reg(
 
 def _new_msig_reg(
     *,
-    msig_configs: list[InMultiSigSetup],
-) -> list[User]:
+    msig_configs: list[InMultiSig],
+) -> list[MultiSignature]:
     """Process one or more multisig user accounts.
 
     :param msig_configs: List of one or more MultiSig registration requests
@@ -167,23 +167,25 @@ def _new_msig_reg(
     :return: _description_
     :rtype: list[User]
     """
-    msig_results: list[User] = []
+    msig_results: list[MultiSignature] = []
     # Use with session and no interim flushing
-    with db.session.no_autoflush:
-        # Build the multisig constructs
-        for index, ms_setup in enumerate(msig_configs):
-            msig_entry: MultiSignature = MultiSignature()
-            msig_entry.multisig_name = ms_setup.multi_sig.name + "_msig"
-            msig_entry.threshold = ms_setup.multi_sig.threshold
-            msig_entry.status = (
-                MultiSigStatus.pending_attestation
-                if ms_setup.multi_sig.requires_attestation
-                else MultiSigStatus.confirmed
-            )
+    for index, ms_setup in enumerate(msig_configs):
+        msig_entry: MultiSignature = MultiSignature()
+        msig_entry.multisig_name = ms_setup.name
+        msig_entry.threshold = ms_setup.threshold
+        msig_entry.status = (
+            MultiSigStatus.pending_attestation
+            if ms_setup.requires_attestation
+            else MultiSigStatus.confirmed
+        )
+        db.session.add(msig_entry)
+
+        with db.session.no_autoflush:
+            # Build the multisig constructs
             sig_keys = []
             sig_weights = []
             msig_members: list[MultiSigMember] = []
-            for member in ms_setup.multi_sig.members:
+            for member in ms_setup.members:
                 # Validate account for member exists
                 user: User = User.query.filter(
                     User.account_key == member.account_key,
@@ -200,13 +202,14 @@ def _new_msig_reg(
                         else MsMemberStatus.confirmed
                     )
                     # For building a BaseMultiSig
-                    pkb = base64.b64decode(user.configuration.public_key)
+                    pkb = base64.b64decode(user.public_key)
                     sig_keys.append(
                         SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:])
                     )
                     sig_weights.append(ms_member.weight)
                     # Relationships
                     user.multisig_member.append(ms_member)
+                    # msig_entry.multisig_members.append(ms_member)
                     msig_members.append(ms_member)
 
                 else:
@@ -217,9 +220,10 @@ def _new_msig_reg(
             # Construct BaseMultiSig for address
             bmsig = BaseMultiSig(sig_keys, sig_weights, msig_entry.threshold)
             msig_entry.multisig_members.extend(msig_members)
+            msig_entry.active_address = bmsig.address
 
             # Create the msig user account
-            msig_configs[index].active_address = bmsig.address
+            # msig_configs[index].active_address = bmsig.address
             msig_results.append(msig_entry)
 
     # Commit it all
@@ -264,19 +268,19 @@ def new_multi_sig_account():
     admin_login_required()
     try:
         # Deserialize
-        msig_in: InMultiSigSetup = deserialize_msig_create(
+        msig_in: InMultiSig = deserialize_msig_create(
             json.loads(request.get_json())
         )
         # FIXME: Work this directly with MultiSignature table
-        user = User.query.filter(
-            User.user_name.like(msig_in.account.user.username),
+        msig: MultiSignature = MultiSignature.query.filter(
+            MultiSignature.multisig_name == msig_in.name
         ).first()
     except marshmallow.ValidationError as ve:
         _content_expected(ve.messages)
     # When we have a user with username and User role, fail
-    if user:
+    if msig:
         raise APIError(
-            f"MultiSig {msig_in.account.user.username} already exists.",
+            f"MultiSig {msig_in.name} already exists.",
             ErrorCodes.USER_ALREADY_EXISTS,
         )
     # Create the new multisig user, configuration and members
@@ -386,10 +390,10 @@ def query_user_accounts(page):
     in_data: list[dict] = []
     for user in users.items:
         ujson = json.loads(json.dumps(user, cls=cmn.CustomJSONEncoder))
-        cjson = json.loads(
-            json.dumps(user.configuration, cls=cmn.CustomJSONEncoder)
-        )
-        ujson["configuration"] = cjson
+        # cjson = json.loads(
+        #     json.dumps(user.configuration, cls=cmn.CustomJSONEncoder)
+        # )
+        # ujson["configuration"] = cjson
         in_data.append(ujson)
     return {
         "accounts": OutUser(partial=True, unknown="exclude", many=True).load(

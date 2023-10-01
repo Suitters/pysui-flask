@@ -75,7 +75,7 @@ def post_signature_request(
         # Who is indtended to sign (can include the originator as sender)
         sig_r.signer_account_key = sender.account_key
         # Public key of signer
-        sig_r.signer_public_key = sender.configuration.public_key
+        sig_r.signer_public_key = sender.public_key
         # TODO: Are they sender or sponsoring
         sig_r.signing_as = SigningAs.tx_sender
         # These are control fields
@@ -91,7 +91,7 @@ def post_signature_request(
         # Who is indtended to sign (can include the originator as sender)
         sig_r.signer_account_key = sponsor.account_key
         # Public key of signer
-        sig_r.signer_public_key = sponsor.configuration.public_key
+        sig_r.signer_public_key = sponsor.public_key
         # TODO: Are they sender or sponsoring
         sig_r.signing_as = SigningAs.tx_sponsor
         # These are control fields
@@ -122,9 +122,6 @@ def account():
     _user_login_required()
     user = User.query.filter(User.account_key == session["user_key"]).first()
     ujson = json.loads(json.dumps(user, cls=cmn.CustomJSONEncoder))
-    ujson["configuration"] = json.loads(
-        json.dumps(user.configuration, cls=cmn.CustomJSONEncoder)
-    )
     return {
         "account": OutUser(partial=True, unknown="exclude", many=False).load(
             ujson
@@ -375,9 +372,9 @@ def get_transaction_results():
                 json.loads(json.dumps(x, cls=cmn.CustomJSONEncoder))
                 for x in track.requests
             ],
-            "result": json.loads(
-                json.dumps(track.execution, cls=cmn.CustomJSONEncoder)
-            ),
+            # "result": json.loads(
+            #     json.dumps(track.execution, cls=cmn.CustomJSONEncoder)
+            # ),
         }
         tx_result.append(data_point)
     return {"transactions": json.loads(json.dumps(tx_result))}, 200

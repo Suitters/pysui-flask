@@ -153,7 +153,7 @@ class MultiSigMember(db.Model):
         primary_key=True,
         autoincrement=True,
     )
-    # Owner (user) ID of the MultiSig
+    # ID of the MultiSig
     ms_owner_id: str = db.Column(
         db.String, db.ForeignKey("multi_signature.multisig_id"), nullable=False
     )
@@ -190,9 +190,9 @@ class SignatureTrack(db.Model):
         cascade="all, delete-orphan",
     )
 
-    # Set when either are not requestor
-    explicit_sender: str = db.Column(db.String(44), nullable=True)
-    explicit_sponsor: str = db.Column(db.String(44), nullable=True)
+    # Set active-address when either are not requestor
+    explicit_sender: str = db.Column(db.String(66), nullable=True)
+    explicit_sponsor: str = db.Column(db.String(66), nullable=True)
 
     # This is the tx_byte base64 string that requires signing
     tx_bytes: str = db.Column(db.String(200000), nullable=False)
