@@ -35,47 +35,28 @@ from pysui.sui.sui_types.address import valid_sui_address
 from pysui.sui.sui_txn import SyncTransaction, SigningMultiSig
 
 
+def client_for_address(active_address: str) -> SyncClient:
+    """Construct a client from an active_address."""
+    try:
+        cfg = SuiConfig.user_config(
+            rpc_url=current_app.config["RPC_URL"],
+        )
+        cfg.set_active_address(SuiAddress(active_address))
+        return SyncClient(cfg)
+    except Exception as exc:
+        raise APIError(
+            exc.args[0],
+            ErrorCodes.PYSUI_ERROR_BASE,
+        )
+
+
 def client_for_account(
     account_key: str, user: Optional[User] = None
-) -> SyncClient:
+) -> tuple[SyncClient, User]:
     """Construct a client from a user account configuration."""
     user = user or User.query.filter(User.account_key == account_key).one()
     if user:
-        try:
-            cfg = SuiConfig.user_config(
-                rpc_url=current_app.config["RPC_URL"],
-            )
-            cfg.set_active_address(SuiAddress(user.active_address))
-            return SyncClient(cfg)
-        except Exception as exc:
-            raise APIError(
-                exc.args[0],
-                ErrorCodes.PYSUI_ERROR_BASE,
-            )
-    raise APIError(
-        f"Account with key: {account_key} not known",
-        ErrorCodes.ACCOUNT_NOT_FOUND,
-    )
-
-
-def client_for_account_action(account_key: str) -> tuple[SyncClient, User]:
-    """Construct client with intent of executing a pysui action.
-
-    :param account_key: Requestinig account used to construct connection with
-    :type account_key: str
-    :raises APIError: If no active-address, due to not having public key, available
-    :raises APIError: Can not find account key
-    :return: A tuple of the pysui client and the user record from db
-    :rtype: tuple[SyncClient, User]
-    """
-    user: User = User.query.filter(User.account_key == account_key).one()
-    if user:
-        if not user.active_address:
-            raise APIError(
-                f"Account {account_key} does not have active address registered.",
-                ErrorCodes.PYSUI_MISSING_PUBLIC_KEY,
-            )
-        return client_for_account(account_key, user), user
+        return client_for_address(user.active_address), user
     raise APIError(
         f"Account with key: {account_key} not known",
         ErrorCodes.ACCOUNT_NOT_FOUND,
@@ -102,17 +83,7 @@ def client_for_transaction(active_address: str) -> tuple[SyncClient, Any]:
         ).one()
     )
     if account:
-        try:
-            cfg = SuiConfig.user_config(
-                rpc_url=current_app.config["RPC_URL"],
-            )
-            cfg.set_active_address(SuiAddress(active_address))
-            return SyncClient(cfg), account
-        except Exception as exc:
-            raise APIError(
-                exc.args[0],
-                ErrorCodes.PYSUI_ERROR_BASE,
-            )
+        return client_for_address(active_address), account
     raise APIError(
         f"Account with address: {active_address} not known",
         ErrorCodes.ACCOUNT_NOT_FOUND,
@@ -333,7 +304,6 @@ def construct_sigblock_entry(sig_req: Union[User, MultiSigRes]) -> Any:
 
 def construct_sender(sig_req: SignersRes) -> Any:
     """Construct sender from requestor or provided explicit sender."""
-    # FIXME: Assumes that the requestor is not multisig
     if not sig_req.sender:
         return SuiAddress(sig_req.requestor.active_address)
     return construct_sigblock_entry(sig_req.sender)
@@ -355,7 +325,6 @@ def _valid_requestor(account_key: str) -> User:
     return user
 
 
-# FIXME: Refactor for MultiSignature
 def _valid_multisig_account(msig_acc: MultiSig) -> MultiSigRes:
     """."""
     msig_account = MultiSignature.query.filter(

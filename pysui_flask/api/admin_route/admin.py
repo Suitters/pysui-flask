@@ -271,7 +271,6 @@ def new_multi_sig_account():
         msig_in: InMultiSig = deserialize_msig_create(
             json.loads(request.get_json())
         )
-        # FIXME: Work this directly with MultiSignature table
         msig: MultiSignature = MultiSignature.query.filter(
             MultiSignature.multisig_name == msig_in.name
         ).first()

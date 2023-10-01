@@ -17,7 +17,7 @@ import json
 from typing import Any, Union
 
 # from http import HTTPStatus
-from flask import Blueprint, session, request
+from flask import session, request
 
 from pysui_flask import db
 
@@ -36,11 +36,10 @@ from . import (
 import pysui_flask.api.common as cmn
 from pysui_flask.api_error import ErrorCodes, APIError
 from pysui_flask.api.xchange.payload import *
-from pysui_flask.api.xchange.account import OutUser, validate_public_key
+from pysui_flask.api.xchange.account import OutUser
 from pysui_flask.api.signing import signature_update
-from pysui import SuiRpcResult, SuiAddress
-from pysui.sui.sui_txn import SyncTransaction, SigningMultiSig
-from pysui.sui.sui_crypto import BaseMultiSig, SuiPublicKey
+from pysui import SuiRpcResult
+from pysui.sui.sui_txn import SyncTransaction
 
 
 def _user_login_required():
@@ -154,57 +153,11 @@ def account_logoff():
     return {"session": f"{session.sid} ended"}
 
 
-@account_api.get("/gas")
-def account_gas():
-    """Fetch gas for account."""
-    _user_login_required()
-    client, _user = cmn.client_for_account_action(session["user_key"])
-    in_data = json.loads(request.get_json())
-    get_all = in_data.get("all", False)
-    result = client.get_gas(None, get_all)
-    if result.is_ok():
-        return result.result_data.to_dict()
-    raise APIError(
-        f"Sui error {result.result_string}", ErrorCodes.SUI_ERROR_BASE
-    )
-
-
-@account_api.get("/objects")
-def account_objects():
-    """Fetch objects for account."""
-    _user_login_required()
-    client, _user = cmn.client_for_account_action(session["user_key"])
-    in_data = json.loads(request.get_json())
-    get_all = in_data.get("all", False)
-    result = client.get_objects(None, get_all)
-    if result.is_ok():
-        return result.result_data.to_dict()
-    raise APIError(
-        f"Sui error {result.result_string}", ErrorCodes.SUI_ERROR_BASE
-    )
-
-
-@account_api.get("/object/<string:object_id>")
-def account_object(object_id):
-    """Fetch specific object by id."""
-    _user_login_required()
-    object_id = object_id
-    cmn.validate_object_id(object_id, True)
-    client, _user = cmn.client_for_account_action(session["user_key"])
-    in_data = json.loads(request.get_json())
-    result = client.get_object(object_id, in_data.get("version"))
-    if result.is_ok():
-        return result.result_data.to_dict()
-    raise APIError(
-        f"Sui error {result.result_string}", ErrorCodes.SUI_ERROR_BASE
-    )
-
-
 @account_api.get("/pysui_txn")
 def account_inspect_or_validate_transaction():
     """Deserialize and inspect or validate transaction construct."""
     _user_login_required()
-    client = cmn.client_for_account(session["user_key"])
+    client, _user = cmn.client_for_account(session["user_key"])
     in_data = json.loads(request.get_json())
     tx_builder = in_data.get("tx_base64")
     perform = in_data.get("perform", "inspection")
@@ -237,7 +190,7 @@ def account_submit_transaction():
     sig_req: cmn.SignersRes = cmn.verify_tx_signers_existence(
         requestor=session["user_key"], payload=payload
     )
-    client, user = cmn.client_for_account_action(session["user_key"])
+    client, user = cmn.client_for_account(session["user_key"])
 
     txer = cmn.deser_transaction(client, payload.tx_builder)
     try:

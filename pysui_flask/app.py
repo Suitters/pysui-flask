@@ -26,6 +26,7 @@ import pysui_flask.config as config
 # Routes
 from .api.admin_route import admin_api
 from .api.account_route import account_api
+from .api.data_route import data_api
 
 
 # user.password = app.config["ADMIN_PASSWORD"]
@@ -81,6 +82,7 @@ def create_app():
     # Blueprint routes
     app.register_blueprint(admin_api)
     app.register_blueprint(account_api)
+    app.register_blueprint(data_api)
     return app
 
 

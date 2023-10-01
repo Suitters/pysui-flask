@@ -51,8 +51,8 @@ def test_no_ops(client: FlaskClient):
     """Test account with no public key can't execute those that require."""
     response = login_user(client, BAD_OPS_USER_LOGIN_CREDS)
     assert response.status_code == 200
-    response = client.get("/account/gas", json=json.dumps({"all": False}))
-    check_error_expect(response, -1)
+    # response = client.get("/account/gas", json=json.dumps({"all": False}))
+    # check_error_expect(response, -1)
     response = logoff_user(client)
     assert response.status_code == 200
 
@@ -75,40 +75,4 @@ def test_account_post_login_root(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert result["result"]["account"]["user_name"] == "FrankC015"
-    _ = logoff_user(client)
-
-
-# Sui Calls
-
-
-def test_get_gas(client: FlaskClient):
-    """Should have some gas."""
-    _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.get("/account/gas", json=json.dumps({"all": False}))
-    assert response.status_code == 200
-    result = response.json
-    assert result["result"]["data"][0]
-    _ = logoff_user(client)
-
-
-def test_get_objects(client: FlaskClient):
-    """Should have some objects."""
-    _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.get("/account/objects", json=json.dumps({"all": False}))
-    assert response.status_code == 200
-    result = response.json
-    assert result["result"]["data"]
-    _ = logoff_user(client)
-
-
-def test_get_object(client: FlaskClient):
-    """Should not be empty."""
-    _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.get(
-        "/account/object/0x5464b56a2ab51547cd7da5fe0e31278b833bf54d87df2be93c85b738f83cfb05",
-        json=json.dumps({}),
-    )
-    assert response.status_code == 200
-    result = response.json
-    assert result["result"]["code"] == "notExists"
     _ = logoff_user(client)

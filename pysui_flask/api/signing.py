@@ -83,6 +83,7 @@ def _gather_address_and_signatures(
         )
 
     # If sponsor identified
+    # FIXME: Cleanup for active_address instead of UserRole
     if track.explicit_sponsor:
         sponsor = User.query.filter(
             User.account_key == track.explicit_sponsor

@@ -38,6 +38,7 @@ class Config:
     SESSION_TYPE = os.environ.get("SESSION_TYPE")
     SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
     RPC_URL = os.environ.get("RPC_URL")
+    ALLOW_ANONYMOUS_DATA_READ = os.environ.get("ALLOW_ANONYMOUS_DATA_READ")
     CONSTRAINTS = Constraints()
 
 
