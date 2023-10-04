@@ -35,27 +35,43 @@ def _data_enabled():
         raise APIError("Data reading not enabled", ErrorCodes.PYSUI_ERROR_BASE)
 
 
-# @data_api.get("/gas/<string:address>")
-# def get_gas(address):
-#     """."""
-#     _data_enabled()
+@data_api.get("/<string:address>/gas")
+def get_gas_for(address):
+    """."""
+    _data_enabled()
+    client = cmn.client_for_address(address)
+    result = client.get_gas(None, True)
+    if result.is_ok():
+        return {"gas": result.result_data.data}, 200
+    else:
+        return {"error": result.result_string}
 
 
-# @data_api.get("/objects/<string:address>")
-# def get_objects(address):
-#     """."""
-#     _data_enabled()
+@data_api.get("/<string:address>/objects")
+def get_objects_for(address):
+    """Returns Sui coin objects for address.
 
-
-# @data_api.get("/account/<string:address>")
-# def get_account_for(address):
-#     """."""
-#     _data_enabled()
+    :param address: A valid Sui address
+    :type address: str
+    :return: An array of objects, else empty array
+    :rtype: list
+    """
+    _data_enabled()
+    client = cmn.client_for_address(address)
+    result = client.get_objects(None, True)
+    if result.is_ok():
+        return {"objects": result.result_data.data}, 200
+    else:
+        return {"error": result.result_string}
 
 
 @data_api.get("/accounts")
 def get_accounts():
-    """."""
+    """Get all accounts: both users and multisigs.
+
+    :return: A listing of all users and all multisigs
+    :rtype: dict
+    """
     _data_enabled()
     users = OutUser(partial=True, unknown="exclude", many=True).load(
         [

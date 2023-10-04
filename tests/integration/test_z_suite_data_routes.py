@@ -15,12 +15,38 @@
 
 import base64
 import json
+import pytest
+
 
 from flask.testing import FlaskClient
 
 
-def test_read_accounts(client: FlaskClient):
-    """Validate error on non-JSON and empty request."""
+@pytest.fixture(scope="module")
+def accounts(client: FlaskClient):
+    """."""
     response = client.get("/data/accounts", json={})
     assert response.status_code == 200
     result = response.json
+    yield result["result"]["accounts"]
+
+
+def test_data_gas(client: FlaskClient, accounts: dict):
+    """Get gas for account."""
+    users = accounts["users"]
+    response = client.get(
+        "/data/" + users[0]["active_address"] + "/gas", json={}
+    )
+    assert response.status_code == 200
+    result = response.json
+    print(result)
+
+
+def test_data_objects(client: FlaskClient, accounts: dict):
+    """Get objects for account."""
+    users = accounts["users"]
+    response = client.get(
+        "/data/" + users[0]["active_address"] + "/objects", json={}
+    )
+    assert response.status_code == 200
+    result = response.json
+    print(result)
