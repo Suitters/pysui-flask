@@ -25,7 +25,7 @@ from . import data_api, MultiSignature, User
 from pysui_flask.api_error import ErrorCodes, APIError
 from pysui_flask.api.xchange.account import OutUser
 import pysui_flask.api.common as cmn
-
+from pysui import ObjectID
 # Generic Sui
 
 
@@ -64,6 +64,23 @@ def get_objects_for(address):
     else:
         return {"error": result.result_string}
 
+@data_api.get("/object/<string:object_id>")
+def get_object_for(object_id):
+    """Returns Sui object for object_id.
+
+    :param object_id: A valid Sui object_id
+    :type object_id: str
+    :return: Information on the specific object
+    :rtype: dict
+    """
+    _data_enabled()
+
+    client = cmn.client_for_any()
+    result = client.get_object(ObjectID(object_id))
+    if result.is_ok():
+        return {"object": result.result_data}, 200
+    else:
+        return {"error": result.result_string}
 
 @data_api.get("/accounts")
 def get_accounts():

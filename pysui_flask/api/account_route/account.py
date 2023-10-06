@@ -75,7 +75,7 @@ def post_signature_request(
         sig_r.signer_account_key = sender.account_key
         # Public key of signer
         sig_r.signer_public_key = sender.public_key
-        # TODO: Are they sender or sponsoring
+        # Are they sender or sponsoring
         sig_r.signing_as = SigningAs.tx_sender
         # These are control fields
         sig_r.status = SignerStatus.pending
@@ -91,7 +91,7 @@ def post_signature_request(
         sig_r.signer_account_key = sponsor.account_key
         # Public key of signer
         sig_r.signer_public_key = sponsor.public_key
-        # TODO: Are they sender or sponsoring
+        # Are they sender or sponsoring
         sig_r.signing_as = SigningAs.tx_sponsor
         # These are control fields
         sig_r.status = SignerStatus.pending

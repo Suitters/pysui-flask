@@ -28,7 +28,7 @@ class MultiSig:
 
     # This is the active-address of the MultiSignature base
     msig_account: str
-    # Optionally these are names for the msig members who are
+    # Optionally these are active_addresses for the msig members who are
     # required to sign. If None, all members must sign
     msig_signers: Optional[list[str]] = None
 

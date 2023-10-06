@@ -105,3 +105,11 @@ def sui_client() -> SyncClient:
     # Turn this fixture into a generator
     yield client
     sui_base_localnet_stop()
+
+@pytest.fixture(scope="session")
+def accounts(client: FlaskClient):
+    """."""
+    response = client.get("/data/accounts", json={})
+    assert response.status_code == 200
+    result = response.json
+    yield result["result"]["accounts"]

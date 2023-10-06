@@ -21,6 +21,7 @@ import json
 import hashlib
 from typing import Optional, Union, Any
 from flask import current_app
+import sqlalchemy.exc as saexc
 from pysui_flask.api.xchange.payload import TransactionIn, MultiSig
 from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.db_tables import (
@@ -49,6 +50,18 @@ def client_for_address(active_address: str) -> SyncClient:
             ErrorCodes.PYSUI_ERROR_BASE,
         )
 
+def client_for_any() -> SyncClient:
+    """Construct a client from an active_address."""
+    try:
+        cfg = SuiConfig.user_config(
+            rpc_url=current_app.config["RPC_URL"],
+        )
+        return SyncClient(cfg)
+    except Exception as exc:
+        raise APIError(
+            exc.args[0],
+            ErrorCodes.PYSUI_ERROR_BASE,
+        )
 
 def client_for_account(
     account_key: str, user: Optional[User] = None
@@ -73,9 +86,12 @@ def client_for_transaction(active_address: str) -> tuple[SyncClient, Any]:
     :return: A tuple of the pysui client and the user record from db
     :rtype: tuple[SyncClient, User]
     """
-    account: Any = User.query.filter(
-        User.active_address == active_address
-    ).one()
+    try:
+        account: Any = User.query.filter(
+            User.active_address == active_address
+        ).one()
+    except saexc.NoResultFound:
+        account = None
     account = (
         account
         or MultiSignature.query.filter(
@@ -188,7 +204,7 @@ class SignersRes:
 
     @property
     def sender_account(self) -> Union[str, None]:
-        """Return the account key of the sender.
+        """Return the active address of the sender.
 
         This may be None.
         :return: The primary account key
@@ -196,9 +212,9 @@ class SignersRes:
         """
         if self.sender:
             return (
-                self.sender.account_key
+                self.sender.active_address
                 if isinstance(self.sender, User)
-                else self.sender.msig_account.owner_id
+                else self.sender.msig_account.active_address
             )
         return None
 
@@ -339,10 +355,10 @@ def _valid_multisig_account(msig_acc: MultiSig) -> MultiSigRes:
         found = 0
         sub_signers: list[User] = []
         for member in msig_base.msig_account.multisig_members:
-            if member.user.user_name in msig_acc.msig_signers:
+            if member.user.active_address in msig_acc.msig_signers:
                 found += 1
                 accum_weight += member.weight
-                sub_signers.append(_valid_account(member.owner_id))
+                sub_signers.append(member.user)
 
         # Did I find them all?
         if found != len(msig_acc.msig_signers):

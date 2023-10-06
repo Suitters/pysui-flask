@@ -15,7 +15,7 @@
 
 import base64
 from typing import Any, Union
-
+import sqlalchemy.exc as saexc
 from pysui_flask.db_tables import (
     db,
     User,
@@ -78,25 +78,35 @@ def _gather_address_and_signatures(
     elif isinstance(sender, MultiSignature):
         sigs.append(
             _gather_msig_signature(
-                track=track, msig_acct=sender.multisig_configuration
+                track=track, msig_acct=sender
             )
         )
 
     # If sponsor identified
-    # FIXME: Cleanup for active_address instead of UserRole
+    # TODO: Test
     if track.explicit_sponsor:
-        sponsor = User.query.filter(
-            User.account_key == track.explicit_sponsor
-        ).one()
-        if sponsor.user_role == UserRole.user:
+        try:
+            sponsor: Any = User.query.filter(
+                User.active_address == track.explicit_sponsor
+            ).one()
+        except saexc.NoResultFound:
+            sponsor = None
+        sponsor = (
+            sponsor
+            or MultiSignature.query.filter(
+                MultiSignature.active_address == track.explicit_sponsor
+            ).one()
+        )
+        # If sender not multi-sig than sig is in the track list
+        if isinstance(sponsor, User):
             for regs in track.requests:
-                if regs.signing_as == SigningAs.tx_sponsor:
+                if regs.signing_as == SigningAs.tx_sender:
                     sigs.append(regs.signature)
         # Else multisig
-        elif sponsor.user_role == UserRole.multisig:
+        elif isinstance(sponsor, MultiSignature):
             sigs.append(
                 _gather_msig_signature(
-                    track=track, msig_acct=sponsor.multisig_configuration
+                    track=track, msig_acct=sponsor
                 )
             )
 
