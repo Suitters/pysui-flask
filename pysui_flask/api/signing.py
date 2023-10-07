@@ -100,7 +100,7 @@ def _gather_address_and_signatures(
         # If sender not multi-sig than sig is in the track list
         if isinstance(sponsor, User):
             for regs in track.requests:
-                if regs.signing_as == SigningAs.tx_sender:
+                if regs.signing_as == SigningAs.tx_sponsor:
                     sigs.append(regs.signature)
         # Else multisig
         elif isinstance(sponsor, MultiSignature):

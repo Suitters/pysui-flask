@@ -244,9 +244,9 @@ class SignersRes:
         """
         if self.sponsor:
             return (
-                self.sponsor.account_key
+                self.sponsor.active_address
                 if isinstance(self.sponsor, User)
-                else self.sponsor.msig_account.owner_id
+                else self.sponsor.msig_account.active_address
             )
         return None
 

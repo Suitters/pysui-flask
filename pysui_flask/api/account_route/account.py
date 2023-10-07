@@ -98,7 +98,7 @@ def post_signature_request(
         sig_r.signature = ""
         tracker.requests.append(sig_r)
         # sigs.append(sig_r)
-        accounts_notified.append(account.account_key)
+        accounts_notified.append(sponsor.account_key)
 
     # tracker.requests = sigs
     sig_set.requestor.sign_track.append(tracker)

@@ -323,3 +323,37 @@ def test_pysui_tx_with_msig(client: FlaskClient, sui_client: SyncClient, account
     result = response.json
     assert result["result"]["transactions"]
     _ = logoff_user(client)
+
+def test_pysui_tx_sponsor(client: FlaskClient, sui_client: SyncClient, accounts:dict):
+    """Test msig signing."""
+
+    # Get Msig account_key
+    msig_block = _msig_data_by_name("Msig01",accounts["multi_signatures"])
+    msig_addy = SuiAddress(msig_block["active_address"])
+
+    # Get 2 of the sigs
+    mmem1_account = _mmember_data_by_index(0,msig_block,accounts["users"])
+    mmem2_account = _mmember_data_by_index(1,msig_block,accounts["users"])
+
+    # Sync user
+    sender_active_addy = SuiAddress(mmem1_account["active_address"])
+    # Create the transaction that puts gas in msig address
+    txer = SyncTransaction(sui_client, initial_sender=sender_active_addy)
+    scoin = txer.split_coin(coin=txer.gas, amounts=[10000000000])
+    txer.transfer_objects(transfers=[scoin], recipient=msig_addy)
+    txin = TransactionIn(
+        tx_builder=base64.b64encode(
+            txer.serialize(include_sender_sponsor=False)
+        ).decode(),
+        signers=Signers(sender=mmem1_account["active_address"],sponsor=mmem2_account["active_address"])
+    )
+    # Post the transaction
+    _ = login_user(client, MSIG1_LOGIN_CREDS)
+    response = client.post("/account/pysui_txn", json=txin.to_json())
+    _ = logoff_user(client)
+    response = sign_request_for(client, sui_client, MSIG1_LOGIN_CREDS)
+    assert response.status_code == 201
+    response = sign_request_for(client, sui_client, MSIG2_LOGIN_CREDS)
+    assert response.status_code == 201
+    result = response.json
+    assert result["result"]["signature_response"] == "signed_and_executed"
