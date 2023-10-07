@@ -13,17 +13,17 @@ ALPHA ALPHA ALPHA - Use tenderly, it's fragile!
 
 While pysui-flask exposes *some* pysui SDK via RESTful API, the main features are MultiSignature management and transaction processing
 
---------------------------
+====================
 Key Dependencies
---------------------------
+====================
 
 pysui-flask uses `pipenv <https://pypi.org/project/pipenv/>`_ for package dependency management and virutal environments
 
 pysui-flask uses `suibase <https://suibase.io/>`_ for integration testing locally
 
---------------------------
+====================
 Setup for use
---------------------------
+====================
 
 #. Clone this repo
 #. Change into repo folder
@@ -37,7 +37,7 @@ Setup for use
     pipenv shell
     pipenv install
 
-
+--------------------------
 Validate
 --------------------------
 
@@ -45,7 +45,7 @@ Validate
 
     pytest
 
-
+--------------------------
 Running
 --------------------------
 

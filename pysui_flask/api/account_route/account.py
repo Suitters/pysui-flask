@@ -140,6 +140,7 @@ def account_login():
         session["name"] = in_data["username"]
         session["user_key"] = user.account_key
         session["user_logged_in"] = True
+        session["chg_pwd_attempts"] = 0
     return {"session": session.sid}
 
 
@@ -150,7 +151,28 @@ def account_logoff():
     session.pop("name")
     session.pop("user_key")
     session.pop("user_logged_in")
+    session.pop("chg_pwd_attempts")
     return {"session": f"{session.sid} ended"}
+
+@account_api.post("/password")
+def account_set_password():
+    """Set the password for next account login."""
+    _user_login_required()
+    try:
+        user: User = User.query.filter(User.account_key == session["user_key"]).first()
+        payload: PwdChange = PwdChange.from_json(request.get_json())
+    except Exception as exc:
+        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
+    c_pwd = cmn.str_to_hash_hex(payload.current_pwd)
+    if user.password != c_pwd:
+        session["chg_pwd_attempts"] += 1
+        raise APIError(f"Invalid current password",ErrorCodes.CREDENTIAL_ERROR_BAD_CURRENT_PWD)
+    user.password = cmn.str_to_hash_hex(payload.new_pwd)
+    # db.session.add(user)
+    db.session.commit()
+    session["chg_pwd_attempts"] = 0
+    return {"changed": True}, 201
+
 
 
 @account_api.get("/pysui_txn")

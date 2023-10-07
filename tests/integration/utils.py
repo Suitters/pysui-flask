@@ -134,6 +134,8 @@ def sign_request_for(
         "/account/signing_request",
         json=payload.to_json(),
     )
+    if response.status_code != 201:
+        print(response.json)
     assert response.status_code == 201
     _ = logoff_user(client)
     return response

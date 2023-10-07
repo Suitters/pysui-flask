@@ -15,13 +15,13 @@
 import json
 
 from flask.testing import FlaskClient
+from pysui_flask.api.xchange.payload import PwdChange
 
 from tests.integration.utils import (
     check_error_expect,
     login_user,
     logoff_user,
     USER_LOGIN_CREDS,
-    MSIG_LOGIN_CREDS,
 )
 
 
@@ -30,6 +30,15 @@ BAD_OPS_USER_LOGIN_CREDS: dict = {
     "password": "Oxnard Gimble",
 }
 
+PWD_OPS_USER_LOGIN_CREDS: dict = {
+    "username": "FrankC013",
+    "password": "Oxnard Gimble",
+}
+
+PWD_OPS_USER_NEW_CREDS: dict = {
+    "username": "FrankC013",
+    "password": "Jinxy Cat",
+}
 
 def test_account_pre_login_root(client: FlaskClient):
     """Validate error on non-JSON and empty request."""
@@ -57,7 +66,6 @@ def test_no_ops(client: FlaskClient):
     assert response.status_code == 200
 
 
-# This session is used through end of module
 def test_good_login_content(client: FlaskClient):
     """Validate good account login credentials."""
     response = login_user(client, USER_LOGIN_CREDS)
@@ -75,4 +83,29 @@ def test_account_post_login_root(client: FlaskClient):
     assert response.status_code == 200
     result = response.json
     assert result["result"]["account"]["user_name"] == "FrankC015"
+    _ = logoff_user(client)
+
+def test_change_pwd(client: FlaskClient):
+    """Validate good password change."""
+    response = login_user(client, PWD_OPS_USER_LOGIN_CREDS)
+    assert response.status_code == 200
+    result = response.json
+    assert "result" in result and "session" in result["result"]
+    payload = PwdChange(current_pwd=PWD_OPS_USER_LOGIN_CREDS["password"],new_pwd=PWD_OPS_USER_NEW_CREDS["password"])
+    response = client.post("/account/password", json=payload.to_json())
+    assert response.status_code == 201
+    _ = logoff_user(client)
+    response = login_user(client, PWD_OPS_USER_NEW_CREDS)
+    assert response.status_code == 200
+    _ = logoff_user(client)
+    result = response.json
+    assert "result" in result and "session" in result["result"]
+
+def test_change_bad_pwd(client: FlaskClient):
+    """Validate password change errors."""
+    response = login_user(client, PWD_OPS_USER_NEW_CREDS)
+    assert response.status_code == 200
+    payload = PwdChange(current_pwd=PWD_OPS_USER_LOGIN_CREDS["password"],new_pwd=PWD_OPS_USER_NEW_CREDS["password"])
+    response = client.post("/account/password", json=payload.to_json())
+    check_error_expect(response, -11)
     _ = logoff_user(client)

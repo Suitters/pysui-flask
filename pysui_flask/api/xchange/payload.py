@@ -136,6 +136,13 @@ class TransactionFilter:
         default_factory=SignRequestFilter
     )
 
+@dataclass_json
+@dataclass
+class PwdChange:
+    """Change password payload."""
+
+    current_pwd: str
+    new_pwd: str
 
 if __name__ == "__main__":
     denied = SigningRejected(
