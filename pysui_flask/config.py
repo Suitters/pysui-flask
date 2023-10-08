@@ -29,7 +29,7 @@ class Constraints:
     """Constraints for routes."""
 
     entries_per_page: int = 50
-
+    allow_pwd_change_attempts = int(os.environ.get("ALLOW_PWD_CHANGE_ATTEMPTS"))
 
 class Config:
     """Base config defaults."""

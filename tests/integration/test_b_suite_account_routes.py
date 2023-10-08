@@ -102,10 +102,28 @@ def test_change_pwd(client: FlaskClient):
     assert "result" in result and "session" in result["result"]
 
 def test_change_bad_pwd(client: FlaskClient):
-    """Validate password change errors."""
+    """Validate password change errors and lock."""
     response = login_user(client, PWD_OPS_USER_NEW_CREDS)
     assert response.status_code == 200
+    # TODO: Make this iterations over configuration variable
+    # Attempt 1
     payload = PwdChange(current_pwd=PWD_OPS_USER_LOGIN_CREDS["password"],new_pwd=PWD_OPS_USER_NEW_CREDS["password"])
     response = client.post("/account/password", json=payload.to_json())
     check_error_expect(response, -11)
+    # Attempt 2
+    payload = PwdChange(current_pwd=PWD_OPS_USER_LOGIN_CREDS["password"],new_pwd=PWD_OPS_USER_NEW_CREDS["password"])
+    response = client.post("/account/password", json=payload.to_json())
+    check_error_expect(response, -11)
+    # Attempt 3
+    payload = PwdChange(current_pwd=PWD_OPS_USER_LOGIN_CREDS["password"],new_pwd=PWD_OPS_USER_NEW_CREDS["password"])
+    response = client.post("/account/password", json=payload.to_json())
+    check_error_expect(response, -11)
+    # Attempt 4
+    payload = PwdChange(current_pwd=PWD_OPS_USER_LOGIN_CREDS["password"],new_pwd=PWD_OPS_USER_NEW_CREDS["password"])
+    response = client.post("/account/password", json=payload.to_json())
+    assert response.status_code == 200
+    result = response.json
+    assert result["result"]["changed"] == False
     _ = logoff_user(client)
+    response = login_user(client, PWD_OPS_USER_NEW_CREDS)
+    check_error_expect(response, -13)

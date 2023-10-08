@@ -21,6 +21,11 @@ from . import db
 
 # from flask.json import JSONEncoder
 
+class AccountStatus(enum.Enum):
+    """Extend as needed."""
+
+    active = 1
+    locked = 2
 
 class SignatureStatus(enum.Enum):
     """Extend as needed."""
@@ -90,6 +95,7 @@ class User(db.Model):
     creation_date: datetime = db.Column(
         db.DateTime(timezone=True), default=datetime.utcnow
     )
+    status: int = db.Column(db.Enum(AccountStatus), nullable=False, default=AccountStatus.active)
     # May or may not have a multisig config
     # May or may not be a member of multisig
     multisig_member = db.relationship(

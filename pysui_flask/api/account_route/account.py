@@ -17,7 +17,7 @@ import json
 from typing import Any, Union
 
 # from http import HTTPStatus
-from flask import session, request
+from flask import session, request, current_app
 
 from pysui_flask import db
 
@@ -27,6 +27,7 @@ from pysui_flask import db
 from . import (
     account_api,
     User,
+    AccountStatus,
     SigningAs,
     SignerStatus,
     SignatureStatus,
@@ -137,10 +138,15 @@ def account_login():
             username=in_data["username"],
             user_password=in_data["password"],
         )
-        session["name"] = in_data["username"]
-        session["user_key"] = user.account_key
-        session["user_logged_in"] = True
-        session["chg_pwd_attempts"] = 0
+        if user.status == AccountStatus.active:
+            session["name"] = in_data["username"]
+            session["user_key"] = user.account_key
+            session["status"] = user.status
+            session["user_logged_in"] = True
+            session["chg_pwd_attempts"] = 0
+        else:
+            raise APIError("User account is locked",ErrorCodes.CREDENTIAL_ERROR_ACCOUNT_LOCKED)
+
     return {"session": session.sid}
 
 
@@ -150,6 +156,7 @@ def account_logoff():
     _user_login_required()
     session.pop("name")
     session.pop("user_key")
+    session.pop("status")
     session.pop("user_logged_in")
     session.pop("chg_pwd_attempts")
     return {"session": f"{session.sid} ended"}
@@ -158,20 +165,27 @@ def account_logoff():
 def account_set_password():
     """Set the password for next account login."""
     _user_login_required()
-    try:
-        user: User = User.query.filter(User.account_key == session["user_key"]).first()
-        payload: PwdChange = PwdChange.from_json(request.get_json())
-    except Exception as exc:
-        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
-    c_pwd = cmn.str_to_hash_hex(payload.current_pwd)
-    if user.password != c_pwd:
-        session["chg_pwd_attempts"] += 1
-        raise APIError(f"Invalid current password",ErrorCodes.CREDENTIAL_ERROR_BAD_CURRENT_PWD)
-    user.password = cmn.str_to_hash_hex(payload.new_pwd)
-    # db.session.add(user)
-    db.session.commit()
-    session["chg_pwd_attempts"] = 0
-    return {"changed": True}, 201
+    if session["status"] != AccountStatus.locked:
+        try:
+            user: User = User.query.filter(User.account_key == session["user_key"]).first()
+            payload: PwdChange = PwdChange.from_json(request.get_json())
+        except Exception as exc:
+            raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
+        c_pwd = cmn.str_to_hash_hex(payload.current_pwd)
+        if user.password != c_pwd:
+            session["chg_pwd_attempts"] += 1
+            # Lock the user if threshold met
+            if session["chg_pwd_attempts"] == current_app.config["CONSTRAINTS"].allow_pwd_change_attempts:
+                user.status = AccountStatus.locked
+                db.session.commit()
+                session["status"] = user.status
+            raise APIError(f"Invalid current password",ErrorCodes.CREDENTIAL_ERROR_BAD_CURRENT_PWD)
+        user.password = cmn.str_to_hash_hex(payload.new_pwd)
+        # db.session.add(user)
+        db.session.commit()
+        session["chg_pwd_attempts"] = 0
+        return {"changed": True}, 201
+    return {"changed": False,"reason":"locked"}, 200
 
 
 
