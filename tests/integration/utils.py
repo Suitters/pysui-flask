@@ -33,11 +33,12 @@ ADMIN_LOGIN_CREDS: dict = {
 }
 
 USER_LOGIN_CREDS: dict = {"username": "FrankC015", "password": "Oxnard Gimble"}
-MSIG_LOGIN_CREDS: dict = {"username": "Msig01", "password": "Oxnard Gimble"}
 
 MSIG1_LOGIN_CREDS: dict = {"username": "FrankC01", "password": "Oxnard Gimble"}
 MSIG2_LOGIN_CREDS: dict = {"username": "FrankC02", "password": "Oxnard Gimble"}
 
+USER3_LOGIN_CREDS: dict = {"username": "FrankC03", "password": "Oxnard Gimble"}
+USER4_LOGIN_CREDS: dict = {"username": "FrankC04", "password": "Oxnard Gimble"}
 
 @dataclass_json
 @dataclass

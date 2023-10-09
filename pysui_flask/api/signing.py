@@ -37,11 +37,11 @@ from pysui.sui.sui_crypto import BaseMultiSig, SuiPublicKey
 
 
 def _gather_msig_signature(
-    *, track: SignatureTrack, msig_acct: MultiSignature
+    *, track: SignatureTrack, msig_acct: MultiSignature,signing_as:SigningAs
 ) -> str:
     """."""
     # Get member sigs
-    member_sigs = [SuiSignature(req.signature) for req in track.requests]
+    member_sigs = [SuiSignature(req.signature) for req in track.requests if req.signing_as == signing_as]
     # Build a crypto BaseMultiSig from db
     base_msig = cmn.construct_multisig(msig_acct)
     sig_pkeys: list[SuiPublicKey] = []
@@ -78,7 +78,7 @@ def _gather_address_and_signatures(
     elif isinstance(sender, MultiSignature):
         sigs.append(
             _gather_msig_signature(
-                track=track, msig_acct=sender
+                track=track, msig_acct=sender,signing_as=SigningAs.tx_sender
             )
         )
 
@@ -106,7 +106,7 @@ def _gather_address_and_signatures(
         elif isinstance(sponsor, MultiSignature):
             sigs.append(
                 _gather_msig_signature(
-                    track=track, msig_acct=sponsor
+                    track=track, msig_acct=sponsor,signing_as=SigningAs.tx_sponsor
                 )
             )
 
