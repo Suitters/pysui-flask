@@ -29,7 +29,8 @@ class Constraints:
     """Constraints for routes."""
 
     entries_per_page: int = 50
-    allow_pwd_change_attempts = int(os.environ.get("ALLOW_PWD_CHANGE_ATTEMPTS"))
+    allow_pwd_change_attempts:int = int(os.environ.get("ALLOW_PWD_CHANGE_ATTEMPTS"))
+    allow_anonymous_dataread:bool = bool(os.environ.get("ALLOW_ANONYMOUS_DATA_READ"))
 
 class Config:
     """Base config defaults."""
@@ -38,7 +39,6 @@ class Config:
     SESSION_TYPE = os.environ.get("SESSION_TYPE")
     SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
     RPC_URL = os.environ.get("RPC_URL")
-    ALLOW_ANONYMOUS_DATA_READ = os.environ.get("ALLOW_ANONYMOUS_DATA_READ")
     CONSTRAINTS = Constraints()
 
 

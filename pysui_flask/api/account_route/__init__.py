@@ -14,15 +14,6 @@
 """Account route package."""
 
 from flask import Blueprint
-from pysui_flask.db_tables import (
-    User,
-    AccountStatus,
-    SigningAs,
-    SignerStatus,
-    SignatureStatus,
-    SignatureRequest,
-    SignatureTrack,
-)
 
 account_api = Blueprint("account", __name__, url_prefix="/account")
 

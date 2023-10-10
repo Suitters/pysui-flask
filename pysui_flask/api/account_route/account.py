@@ -12,28 +12,25 @@
 # -*- coding: utf-8 -*-
 
 """Route module."""
-import base64
+
 import json
-from typing import Any, Union
 
 # from http import HTTPStatus
 from flask import session, request, current_app
 
-from pysui_flask import db
-
-# from pysui_flask.api.xchange.account import OutUser, validate_public_key
-
-# from flasgger import swag_from
-from . import (
-    account_api,
+from pysui_flask.db_tables import (
+    db,
     User,
     AccountStatus,
     SigningAs,
     SignerStatus,
     SignatureStatus,
-    SignatureTrack,
     SignatureRequest,
+    SignatureTrack,
 )
+
+from . import account_api
+
 import pysui_flask.api.common as cmn
 from pysui_flask.api_error import ErrorCodes, APIError
 from pysui_flask.api.xchange.payload import *
@@ -108,15 +105,6 @@ def post_signature_request(
 
 
 @account_api.get("/")
-# @swag_from(
-#     {
-#         "responses": {
-#             HTTPStatus.OK.value: {
-#                 "description": "Admin for pysui-flask",
-#             }
-#         }
-#     }
-# )
 def account():
     """Account root."""
     _user_login_required()

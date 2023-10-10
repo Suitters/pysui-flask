@@ -12,26 +12,23 @@
 # -*- coding: utf-8 -*-
 
 """Route module."""
-import base64
+
 import json
-from typing import Any, Union
 
 # from http import HTTPStatus
-from flask import Blueprint, request, current_app
-import marshmallow
-from pysui_flask import db
+from flask import current_app
 
-from . import data_api, MultiSignature, User
+
+from pysui_flask.db_tables import db, User, MultiSignature
+from . import data_api
 from pysui_flask.api_error import ErrorCodes, APIError
 from pysui_flask.api.xchange.account import OutUser
 import pysui_flask.api.common as cmn
 from pysui import ObjectID
-# Generic Sui
-
 
 def _data_enabled():
     """Test for enablement or throw error."""
-    if current_app.config["ALLOW_ANONYMOUS_DATA_READ"] == 0:
+    if not current_app.config["CONSTRAINTS"].allow_anonymous_dataread:
         raise APIError("Data reading not enabled", ErrorCodes.PYSUI_ERROR_BASE)
 
 

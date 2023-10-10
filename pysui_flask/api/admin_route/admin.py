@@ -24,21 +24,23 @@ from flask import session, request, current_app
 
 # from flasgger import swag_from
 import marshmallow
-from sqlalchemy import and_
 
-from pysui_flask import db
+from pysui_flask.db_tables import (
+    db,
+    User,
+    MultiSigMember,
+    MultiSignature,
+    MsMemberStatus,
+    MultiSigStatus,
+)
 from . import (
     admin_api,
-    User,
-    MultiSignature,
-    MultiSigMember,
-    MultiSigStatus,
-    MsMemberStatus,
     admin_login_required,
+    APIError,
+    ErrorCodes
 )
 import pysui_flask.api.common as cmn
 
-from pysui_flask.api_error import APIError, ErrorCodes
 from pysui_flask.api.xchange.account import (
     InAccountSetup,
     InMultiSig,
@@ -47,7 +49,6 @@ from pysui_flask.api.xchange.account import (
     deserialize_msig_create,
 )
 
-from pysui import SuiAddress
 from pysui.sui.sui_crypto import (
     create_new_keypair,
     SuiPublicKey,
@@ -63,15 +64,6 @@ def _content_expected(fields):
 
 
 @admin_api.get("/")
-# @swag_from(
-#     {
-#         "responses": {
-#             HTTPStatus.OK.value: {
-#                 "description": "Admin for pysui-flask",
-#             }
-#         }
-#     }
-# )
 def admin():
     """Admin root.
 

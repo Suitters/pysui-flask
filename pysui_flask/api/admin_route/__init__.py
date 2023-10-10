@@ -14,13 +14,6 @@
 """Administrator route package."""
 
 from flask import Blueprint, session
-from pysui_flask.db_tables import (
-    User,
-    MultiSigMember,
-    MultiSignature,
-    MsMemberStatus,
-    MultiSigStatus,
-)
 from pysui_flask.api_error import APIError, ErrorCodes
 
 

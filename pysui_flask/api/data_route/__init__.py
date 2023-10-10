@@ -17,6 +17,4 @@ from flask import Blueprint
 
 data_api = Blueprint("data", __name__, url_prefix="/data")
 
-from pysui_flask.db_tables import User, MultiSignature
-
 from . import data
