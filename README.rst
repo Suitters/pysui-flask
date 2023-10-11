@@ -9,7 +9,7 @@ pysui-flask
 Introduction
 ====================
 
-ALPHA ALPHA ALPHA - Use tenderly, it's fragile!
+**ALPHA ALPHA ALPHA** - Use tenderly, it's fragile!
 
 While pysui-flask exposes *some* pysui SDK via RESTful API, the main features are MultiSignature management and transaction processing
 
