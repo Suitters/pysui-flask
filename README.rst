@@ -32,7 +32,7 @@ Setup for use
 
 .. code-block::
 
-    git clone git@github.com:FrankC01/pysui-flask.git
+    git clone git@github.com:Suitters/pysui-flask.git
     cd pysui-flask
     pipenv shell
     pipenv install
