@@ -21,6 +21,7 @@ from flask.testing import FlaskClient
 from tests.integration.utils import (
     ADMIN_LOGIN_CREDS,
     check_error_expect,
+    clean_url_base64,
     login_admin,
     logoff_admin,
 )
@@ -68,6 +69,8 @@ def test_bad_credential_length(client: FlaskClient):
 
 
 # Valid login
+
+
 def test_admin_login(client: FlaskClient):
     """Validate good login credentials."""
     response = login_admin(client)
@@ -102,20 +105,14 @@ def test_admin_create_account_data_errors(client: FlaskClient):
     assert "result" in result and "session" in result["result"]
 
     for bad_content in _BAD_CONTENT:
-        response = client.post(
-            "/admin/user_account", json=json.dumps(bad_content)
-        )
+        response = client.post("/admin/account", json=json.dumps(bad_content))
         check_error_expect(response, -20)
 
 
 def test_admin_account_not_found(client: FlaskClient):
     """Validate no account found."""
-    response = client.get(
-        "/admin/user_account/key",
-        json=json.dumps(
-            {"account_key": "AKkeo/3DD7dra88PdTPhBngdbdTOBHJq8GrnWIfbKsb7"}
-        ),
-    )
+    acc_key = clean_url_base64("AKkeo53DD/dra88PdTPhBngdbdTOBHJq8GrnWIfbKsb7")
+    response = client.get(f"/admin/account/{acc_key}", json=json.dumps({}))
     check_error_expect(response, -40)
 
 
@@ -141,7 +138,7 @@ def test_admin_create_accounts(client: FlaskClient, sui_client: SyncClient):
             }
         )
         account_index += 1
-    response = client.post("/admin/user_accounts", json=json.dumps(goodies))
+    response = client.post("/admin/accounts", json=json.dumps(goodies))
     assert response.status_code == 201
     result = response.json
     assert result["result"]["created"]
@@ -153,14 +150,12 @@ def test_admin_all_accounts(client: FlaskClient):
     """Validate getting all accounts."""
     # response = client.get("/user_accounts", json=json.dumps({"limit": 50}))
     # assert response.status_code == 200
-    response = client.get(
-        "/admin/user_accounts", json=json.dumps({"count": 2})
-    )
+    response = client.get("/admin/accounts", json=json.dumps({"count": 2}))
     assert response.status_code == 200
     result = response.json["result"]
     while result["cursor"]["has_remaining_data"]:
         response = client.get(
-            "/admin/user_accounts/" + str(result["cursor"]["next_page"]),
+            "/admin/accounts/" + str(result["cursor"]["next_page"]),
             json=json.dumps({"count": 4}),
         )
         assert response.status_code == 200
@@ -171,18 +166,14 @@ def test_admin_all_accounts(client: FlaskClient):
 def test_admin_create_msig(client: FlaskClient, sui_client: SyncClient):
     """Create accounts from Sui localnode addresses."""
     # Get first 3 accounts
-    response = client.get(
-        "/admin/user_accounts", json=json.dumps({"count": 3})
-    )
+    response = client.get("/admin/accounts", json=json.dumps({"count": 3}))
     assert response.status_code == 200
     result = response.json["result"]["accounts"]
     # Build members
     base_weight = 3
     members = []
     for acc in result:
-        members.append(
-            {"account_key": acc["account_key"], "weight": base_weight}
-        )
+        members.append({"account_key": acc["account_key"], "weight": base_weight})
         base_weight += 3
     threshold = 9
 
@@ -197,7 +188,14 @@ def test_admin_create_msig(client: FlaskClient, sui_client: SyncClient):
         "requires_attestation": False,
     }
 
-    response = client.post(
-        "/admin/multi_sig_account", json=json.dumps(msig_payload)
-    )
+    response = client.post("/admin/multi_sig_account", json=json.dumps(msig_payload))
     print(msig_payload)
+
+
+def test_account_lock_unlock(client: FlaskClient, accounts: dict):
+    """."""
+    account = clean_url_base64(accounts["users"][5]["account_key"])
+    response = client.post(f"/admin/account/{account}/lock", json=json.dumps({}))
+    assert response.status_code == 201
+    response = client.post(f"/admin/account/{account}/unlock", json=json.dumps({}))
+    assert response.status_code == 201

@@ -12,13 +12,11 @@ python-dotenv = "*"
 flask-session = "*"
 flask-sqlalchemy = "*"
 pysui = "*"
-black = "*"
 
 [dev-packages]
 pytest = "*"
 pydocstyle = "*"
 pylint = "*"
-black = "*"
 build = "*"
 twine = "*"
 pyopenssl = "*"

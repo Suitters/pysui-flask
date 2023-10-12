@@ -51,5 +51,4 @@ Running
 
 .. code-block::
 
-    cd pysui_flask
     flask run

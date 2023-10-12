@@ -27,18 +27,14 @@ import marshmallow
 
 from pysui_flask.db_tables import (
     db,
+    AccountStatus,
     User,
     MultiSigMember,
     MultiSignature,
     MsMemberStatus,
     MultiSigStatus,
 )
-from . import (
-    admin_api,
-    admin_login_required,
-    APIError,
-    ErrorCodes
-)
+from . import admin_api, admin_login_required, APIError, ErrorCodes
 import pysui_flask.api.common as cmn
 
 from pysui_flask.api.xchange.account import (
@@ -58,9 +54,7 @@ from pysui.sui.sui_crypto import (
 
 
 def _content_expected(fields):
-    raise APIError(
-        f"Expected {fields} in request", ErrorCodes.REQUEST_CONTENT_ERROR
-    )
+    raise APIError(f"Expected {fields} in request", ErrorCodes.REQUEST_CONTENT_ERROR)
 
 
 @admin_api.get("/")
@@ -189,15 +183,12 @@ def _new_msig_reg(
                     ms_member.weight = member.weight
                     ms_member.status = (
                         MsMemberStatus.request_attestation
-                        if msig_entry.status
-                        == MultiSigStatus.pending_attestation
+                        if msig_entry.status == MultiSigStatus.pending_attestation
                         else MsMemberStatus.confirmed
                     )
                     # For building a BaseMultiSig
                     pkb = base64.b64decode(user.public_key)
-                    sig_keys.append(
-                        SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:])
-                    )
+                    sig_keys.append(SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:]))
                     sig_weights.append(ms_member.weight)
                     # Relationships
                     user.multisig_member.append(ms_member)
@@ -223,7 +214,7 @@ def _new_msig_reg(
     return msig_results
 
 
-@admin_api.post("/user_account")
+@admin_api.post("/account")
 def new_user_account():
     """Admin registration of new user account."""
     admin_login_required()
@@ -260,9 +251,7 @@ def new_multi_sig_account():
     admin_login_required()
     try:
         # Deserialize
-        msig_in: InMultiSig = deserialize_msig_create(
-            json.loads(request.get_json())
-        )
+        msig_in: InMultiSig = deserialize_msig_create(json.loads(request.get_json()))
         msig: MultiSignature = MultiSignature.query.filter(
             MultiSignature.multisig_name == msig_in.name
         ).first()
@@ -284,7 +273,7 @@ def new_multi_sig_account():
     }, 201
 
 
-@admin_api.post("/user_accounts")
+@admin_api.post("/accounts")
 def new_user_accounts():
     """Admin registration of bulk new user account."""
     admin_login_required()
@@ -323,33 +312,27 @@ def new_user_accounts():
     return {"created": user_result}, 201
 
 
-@admin_api.get("/user_account/key")
-def query_user_account():
+@admin_api.get("/account/<string:account_key>")
+def query_user_account(account_key):
     """Get a user account by account key."""
     admin_login_required()
-    q_account = json.loads(request.get_json())
-
-    user = User.query.filter(
-        User.account_key == q_account["account_key"],
-    ).first()
+    user: User = cmn.get_account_for_key(account_key)
     if user:
         ujson = json.loads(json.dumps(user, cls=cmn.CustomJSONEncoder))
         ujson["configuration"] = json.loads(
             json.dumps(user.configuration, cls=cmn.CustomJSONEncoder)
         )
         return {
-            "account": OutUser(
-                partial=True, unknown="exclude", many=False
-            ).load(ujson)
+            "account": OutUser(partial=True, unknown="exclude", many=False).load(ujson)
         }, 200
     raise APIError(
-        f"Account {q_account} not exist.",
+        f"Account {account_key} not exist.",
         ErrorCodes.ACCOUNT_NOT_FOUND,
     )
 
 
-@admin_api.get("/user_accounts", defaults={"page": 1})
-@admin_api.get("/user_accounts/<int:page>")
+@admin_api.get("/accounts", defaults={"page": 1})
+@admin_api.get("/accounts/<int:page>")
 def query_user_accounts(page):
     """Fetches all user accounts with role user or multisig (not admin)."""
     admin_login_required()
@@ -387,8 +370,38 @@ def query_user_accounts(page):
         # ujson["configuration"] = cjson
         in_data.append(ujson)
     return {
-        "accounts": OutUser(partial=True, unknown="exclude", many=True).load(
-            in_data
-        ),
+        "accounts": OutUser(partial=True, unknown="exclude", many=True).load(in_data),
         "cursor": cursor,
     }, 200
+
+
+@admin_api.post("/account/<string:account_key>/lock")
+def lock_acount(account_key):
+    """Lock user at account_key."""
+    admin_login_required()
+    user: User = cmn.get_account_for_key(account_key)
+    if user:
+        user.status = AccountStatus.locked
+        db.session.commit()
+        return {"account_locked": account_key}, 201
+    else:
+        raise APIError(
+            f"Account with key: {account_key} not known",
+            ErrorCodes.ACCOUNT_NOT_FOUND,
+        )
+
+
+@admin_api.post("/account/<string:account_key>/unlock")
+def unlock_acount(account_key):
+    """Unlock user at account_key."""
+    admin_login_required()
+    user: User = cmn.get_account_for_key(account_key)
+    if user:
+        user.status = AccountStatus.active
+        db.session.commit()
+        return {"account_unlocked": account_key}, 201
+    else:
+        raise APIError(
+            f"Account with key: {account_key} not known",
+            ErrorCodes.ACCOUNT_NOT_FOUND,
+        )

@@ -58,6 +58,9 @@ def check_error_expect(response, ecode):
     assert "error" in response.json
     assert response.json["error_code"] == ecode
 
+def clean_url_base64(input:str) -> str:
+    """Encode base64 is url safe."""
+    return base64.urlsafe_b64encode(base64.urlsafe_b64decode(input)).decode()
 
 def login_admin(
     client: FlaskClient, credentials: Optional[dict] = ADMIN_LOGIN_CREDS

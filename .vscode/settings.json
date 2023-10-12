@@ -1,11 +1,6 @@
 {
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
-  "black-formatter.args": [
-    "--check",
-    "--line-length",
-    "79"
-  ],
   "pylint.args": [
     "----extension-pkg-whitelist=1xml",
     "--max-line-length",
@@ -28,7 +23,6 @@
   // "python.linting.pydocstyleArgs": [
   //   "--ignore=D203,D213,D401,D403"
   // ],
-  "editor.formatOnSave": true,
   "autoDocstring.docstringFormat": "sphinx",
   "autoDocstring.generateDocstringOnEnter": true,
   "autoDocstring.guessTypes": true,
@@ -38,5 +32,11 @@
   ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "black-formatter.args": [
+      "--check",
+      "--line-length",
+      "79"
+    ],
   }
 }

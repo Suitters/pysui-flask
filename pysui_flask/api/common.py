@@ -36,6 +36,22 @@ from pysui.sui.sui_types.address import valid_sui_address
 from pysui.sui.sui_txn import SyncTransaction, SigningMultiSig
 
 
+def get_account_for_key(account_key: str) -> Union[User,APIError]:
+    """Attempt to fech a user account
+
+    :param active_address: The account's acount_key
+    :type active_address: str
+    :return: A User Account if found
+    :rtype: Union[User,APIError]
+    """
+    try:
+        account: User = User.query.filter(
+            User.account_key == account_key
+        ).one()
+    except saexc.NoResultFound:
+        account:User = None
+    return account
+
 def client_for_address(active_address: str) -> SyncClient:
     """Construct a client from an active_address."""
     try:
