@@ -52,3 +52,14 @@ Running
 .. code-block::
 
     flask run
+
+====================
+Theory of Operations
+====================
+
+#. Chain data can be queries by anyone (read operations)
+#. Accounts (user accounts or multisigs) particpating in transactions must be provisioned by admin
+#. Transactions submitted incllude sender and optionally sponsers
+#. Sender and sponsors can be single or multisig
+#. Signing requests are queued to indivual accounts
+#. Signing may be accepted (response includes signature of transaction bytes) or denied

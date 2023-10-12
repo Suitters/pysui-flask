@@ -22,6 +22,7 @@ keywords = [
     "utilities",
     "pysui",
     "flask",
+    "rest",
     "framework",
 ]
 license = { text = "Apache-2.0" }
