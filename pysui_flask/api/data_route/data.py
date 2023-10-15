@@ -22,9 +22,10 @@ from flask import current_app
 from pysui_flask.db_tables import db, User, MultiSignature
 from . import data_api
 from pysui_flask.api_error import ErrorCodes, APIError
-from pysui_flask.api.xchange.account import OutUser
+from pysui_flask.api.xchange.payload import OutUser
 import pysui_flask.api.common as cmn
 from pysui import ObjectID
+
 
 def _data_enabled():
     """Test for enablement or throw error."""
@@ -61,6 +62,7 @@ def get_objects_for(address):
     else:
         return {"error": result.result_string}
 
+
 @data_api.get("/object/<string:object_id>")
 def get_object_for(object_id):
     """Returns Sui object for object_id.
@@ -79,6 +81,7 @@ def get_object_for(object_id):
     else:
         return {"error": result.result_string}
 
+
 @data_api.get("/accounts")
 def get_accounts():
     """Get all accounts: both users and multisigs.
@@ -88,19 +91,14 @@ def get_accounts():
     """
     _data_enabled()
     users = OutUser(partial=True, unknown="exclude", many=True).load(
-        [
-            json.loads(json.dumps(x, cls=cmn.CustomJSONEncoder))
-            for x in User.query.all()
-        ]
+        [json.loads(json.dumps(x, cls=cmn.CustomJSONEncoder)) for x in User.query.all()]
     )
     msigs: list[dict] = []
     for msig in MultiSignature.query.all():
         msig_d = json.loads(json.dumps(msig, cls=cmn.CustomJSONEncoder))
         msig_m: list[dict] = []
         for member in msig.multisig_members:
-            msig_m.append(
-                json.loads(json.dumps(member, cls=cmn.CustomJSONEncoder))
-            )
+            msig_m.append(json.loads(json.dumps(member, cls=cmn.CustomJSONEncoder)))
         msig_d["multisig_members"] = msig_m
         msigs.append(msig_d)
     return {

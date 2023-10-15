@@ -58,7 +58,8 @@ Theory of Operations
 ====================
 
 #. Chain data can be queries by anyone (read operations)
-#. Accounts (user accounts or multisigs) particpating in transactions must be provisioned by admin
+#. Accounts (user accounts) particpating in transactions must be provisioned by admin
+#. MultiSignature configurations are provisioned by admin
 #. Transactions submitted incllude sender and optionally sponser
 #. Sender and sponsor can be single or multisig
 #. Signing requests are queued to indivual accounts

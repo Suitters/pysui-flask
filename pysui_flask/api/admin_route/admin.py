@@ -37,7 +37,7 @@ from pysui_flask.db_tables import (
 from . import admin_api, admin_login_required, APIError, ErrorCodes
 import pysui_flask.api.common as cmn
 
-from pysui_flask.api.xchange.account import (
+from pysui_flask.api.xchange.payload import (
     InAccountSetup,
     InMultiSig,
     OutUser,

@@ -34,7 +34,6 @@ from . import account_api
 import pysui_flask.api.common as cmn
 from pysui_flask.api_error import ErrorCodes, APIError
 from pysui_flask.api.xchange.payload import *
-from pysui_flask.api.xchange.account import OutUser
 from pysui_flask.api.signing import signature_update
 from pysui import SuiRpcResult
 from pysui.sui.sui_txn import SyncTransaction
@@ -111,9 +110,7 @@ def account():
     user = User.query.filter(User.account_key == session["user_key"]).first()
     ujson = json.loads(json.dumps(user, cls=cmn.CustomJSONEncoder))
     return {
-        "account": OutUser(partial=True, unknown="exclude", many=False).load(
-            ujson
-        )
+        "account": OutUser(partial=True, unknown="exclude", many=False).load(ujson)
     }, 200
 
 
@@ -133,7 +130,9 @@ def account_login():
             session["user_logged_in"] = True
             session["chg_pwd_attempts"] = 0
         else:
-            raise APIError("User account is locked",ErrorCodes.CREDENTIAL_ERROR_ACCOUNT_LOCKED)
+            raise APIError(
+                "User account is locked", ErrorCodes.CREDENTIAL_ERROR_ACCOUNT_LOCKED
+            )
 
     return {"session": session.sid}
 
@@ -149,13 +148,16 @@ def account_logoff():
     session.pop("chg_pwd_attempts")
     return {"session": f"{session.sid} ended"}
 
+
 @account_api.post("/password")
 def account_set_password():
     """Set the password for next account login."""
     _user_login_required()
     if session["status"] != AccountStatus.locked:
         try:
-            user: User = User.query.filter(User.account_key == session["user_key"]).first()
+            user: User = User.query.filter(
+                User.account_key == session["user_key"]
+            ).first()
             payload: PwdChange = PwdChange.from_json(request.get_json())
         except Exception as exc:
             raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
@@ -163,18 +165,22 @@ def account_set_password():
         if user.password != c_pwd:
             session["chg_pwd_attempts"] += 1
             # Lock the user if threshold met
-            if session["chg_pwd_attempts"] == current_app.config["CONSTRAINTS"].allow_pwd_change_attempts:
+            if (
+                session["chg_pwd_attempts"]
+                == current_app.config["CONSTRAINTS"].allow_pwd_change_attempts
+            ):
                 user.status = AccountStatus.locked
                 db.session.commit()
                 session["status"] = user.status
-            raise APIError(f"Invalid current password",ErrorCodes.CREDENTIAL_ERROR_BAD_CURRENT_PWD)
+            raise APIError(
+                f"Invalid current password", ErrorCodes.CREDENTIAL_ERROR_BAD_CURRENT_PWD
+            )
         user.password = cmn.str_to_hash_hex(payload.new_pwd)
         # db.session.add(user)
         db.session.commit()
         session["chg_pwd_attempts"] = 0
         return {"changed": True}, 201
-    return {"changed": False,"reason":"locked"}, 200
-
+    return {"changed": False, "reason": "locked"}, 200
 
 
 @account_api.get("/pysui_txn")
@@ -222,9 +228,7 @@ def account_submit_transaction():
         txer.signer_block.sender = cmn.construct_sender(sig_req)
         # Optional setup sponsor
         if sig_req.sponsor:
-            txer.signer_block.sponsor = cmn.construct_sigblock_entry(
-                sig_req.sponsor
-            )
+            txer.signer_block.sponsor = cmn.construct_sigblock_entry(sig_req.sponsor)
         # TODO:
         # Verify objects in builder are owned
 
@@ -245,9 +249,7 @@ def account_submit_transaction():
         requests_submitted = post_signature_request(sig_req, txdata_to_sign)
         return {"accounts_posted": requests_submitted}, 201
     except Exception as exc:
-        raise APIError(
-            f"Exception {exc.args[0]}", ErrorCodes.CONTENT_TYPE_ERROR
-        )
+        raise APIError(f"Exception {exc.args[0]}", ErrorCodes.CONTENT_TYPE_ERROR)
 
 
 def _requested_filtered(
@@ -312,12 +314,8 @@ def set_signing_requests():
     """."""
     _user_login_required()
     try:
-        payload: SigningResponse = SigningResponse.from_json(
-            request.get_json()
-        )
-        result = signature_update(
-            session_key=session["user_key"], sig_resp=payload
-        )
+        payload: SigningResponse = SigningResponse.from_json(request.get_json())
+        result = signature_update(session_key=session["user_key"], sig_resp=payload)
         action_taken = {"signature_response": result}
         return action_taken, 201
 
@@ -329,9 +327,7 @@ def set_signing_requests():
 def get_transaction_results():
     """Get transactions the account is in context of."""
     _user_login_required()
-    tx_filter: TransactionFilter = TransactionFilter.from_json(
-        request.get_json()
-    )
+    tx_filter: TransactionFilter = TransactionFilter.from_json(request.get_json())
     requests: list[SignatureRequest] = _requested_filtered(
         session["user_key"], tx_filter.request_filter
     )
@@ -361,9 +357,7 @@ def get_transaction_results():
 def get_multisig_membership_requests():
     """."""
     _user_login_required()
-    user: User = User.query.filter(
-        User.account_key == session["user_key"]
-    ).first()
+    user: User = User.query.filter(User.account_key == session["user_key"]).first()
     return {
         "needs_signing": json.loads(
             json.dumps(user.multisig_requests, cls=cmn.CustomJSONEncoder)
