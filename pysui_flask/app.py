@@ -88,5 +88,12 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
+    app.run(
+        use_debugger=False,
+        use_reloader=False,
+        passthrough_errors=True,
+        host=app.config["SERVER_HOST_URL"],
+        port=app.config["SERVER_PORT"],
+    )
 
-    app.run(host="0.0.0.0", port=5000)
+    # app.run(host="0.0.0.0", port=5000)

@@ -29,8 +29,9 @@ class Constraints:
     """Constraints for routes."""
 
     entries_per_page: int = 50
-    allow_pwd_change_attempts:int = int(os.environ.get("ALLOW_PWD_CHANGE_ATTEMPTS"))
-    allow_anonymous_dataread:bool = bool(os.environ.get("ALLOW_ANONYMOUS_DATA_READ"))
+    allow_pwd_change_attempts: int = int(os.environ.get("ALLOW_PWD_CHANGE_ATTEMPTS"))
+    allow_anonymous_dataread: bool = bool(os.environ.get("ALLOW_ANONYMOUS_DATA_READ"))
+
 
 class Config:
     """Base config defaults."""
@@ -40,6 +41,8 @@ class Config:
     SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
     RPC_URL = os.environ.get("RPC_URL")
     CONSTRAINTS = Constraints()
+    SERVER_HOST_URL = None
+    SERVER_PORT = None
 
 
 class ProdConfig(Config):
@@ -57,6 +60,8 @@ class ProdConfig(Config):
     PERMANENT_SESSION_LIFETIME = timedelta(
         hours=(int(os.environ.get("PROD_PERMANENT_SESSION_LIFETIME")))
     )
+    SERVER_HOST_URL = os.environ.get("PROD_HOST_URL")
+    SERVER_PORT = int(os.environ.get("PROD_PORT"))
 
 
 class DevConfig(Config):
@@ -74,6 +79,8 @@ class DevConfig(Config):
     PERMANENT_SESSION_LIFETIME = timedelta(
         hours=(int(os.environ.get("DEV_PERMANENT_SESSION_LIFETIME")))
     )
+    SERVER_HOST_URL = os.environ.get("DEV_HOST_URL")
+    SERVER_PORT = int(os.environ.get("DEV_PORT"))
 
 
 def load_config() -> Config:

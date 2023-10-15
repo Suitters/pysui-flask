@@ -5,25 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Payload",
-            "type": "python",
-            "request": "launch",
-            "module": "pysui_flask.api.xchange.payload",
-            "justMyCode": false
-        },
-        {
             "name": "pysui-flask",
             "type": "python",
             "request": "launch",
-            "module": "flask",
+            "module": "pysui_flask.app",
             "env": {
                 "FLASK_APP": "pysui_flask/app.py",
+                "FLASK_DEBUG": "1"
             },
-            "args": [
-                "run",
-                "--no-debugger",
-                "--no-reload"
-            ],
+            "args": [],
             "jinja": true,
             "justMyCode": true
         }
