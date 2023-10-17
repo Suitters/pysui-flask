@@ -39,8 +39,8 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY")
     SESSION_TYPE = os.environ.get("SESSION_TYPE")
     SESSION_PERMANENT = os.environ.get("SESSION_PERMANENT")
-    RPC_URL = os.environ.get("RPC_URL")
     CONSTRAINTS = Constraints()
+    RPC_URL = None
     SERVER_HOST_URL = None
     SERVER_PORT = None
 
@@ -60,6 +60,7 @@ class ProdConfig(Config):
     PERMANENT_SESSION_LIFETIME = timedelta(
         hours=(int(os.environ.get("PROD_PERMANENT_SESSION_LIFETIME")))
     )
+    RPC_URL = os.environ.get("PROD_SUI_RPC_URL")
     SERVER_HOST_URL = os.environ.get("PROD_HOST_URL")
     SERVER_PORT = int(os.environ.get("PROD_PORT"))
 
@@ -79,6 +80,7 @@ class DevConfig(Config):
     PERMANENT_SESSION_LIFETIME = timedelta(
         hours=(int(os.environ.get("DEV_PERMANENT_SESSION_LIFETIME")))
     )
+    RPC_URL = os.environ.get("DEV_SUI_RPC_URL")
     SERVER_HOST_URL = os.environ.get("DEV_HOST_URL")
     SERVER_PORT = int(os.environ.get("DEV_PORT"))
 

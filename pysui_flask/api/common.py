@@ -36,21 +36,20 @@ from pysui.sui.sui_types.address import valid_sui_address
 from pysui.sui.sui_txn import SyncTransaction, SigningMultiSig
 
 
-def get_account_for_key(account_key: str) -> Union[User,APIError]:
-    """Attempt to fech a user account
+def get_account_for_address(active_address: str) -> Union[User, APIError]:
+    """Attempt to fech a user account by an active address
 
-    :param active_address: The account's acount_key
+    :param active_address: The account's address on Sui blockchain
     :type active_address: str
     :return: A User Account if found
     :rtype: Union[User,APIError]
     """
     try:
-        account: User = User.query.filter(
-            User.account_key == account_key
-        ).one()
+        account: User = User.query.filter(User.active_address == active_address).one()
     except saexc.NoResultFound:
-        account:User = None
+        account: User = None
     return account
+
 
 def client_for_address(active_address: str) -> SyncClient:
     """Construct a client from an active_address."""
@@ -66,6 +65,7 @@ def client_for_address(active_address: str) -> SyncClient:
             ErrorCodes.PYSUI_ERROR_BASE,
         )
 
+
 def client_for_any() -> SyncClient:
     """Construct a client from an active_address."""
     try:
@@ -78,6 +78,7 @@ def client_for_any() -> SyncClient:
             exc.args[0],
             ErrorCodes.PYSUI_ERROR_BASE,
         )
+
 
 def client_for_account(
     account_key: str, user: Optional[User] = None
@@ -103,9 +104,7 @@ def client_for_transaction(active_address: str) -> tuple[SyncClient, Any]:
     :rtype: tuple[SyncClient, User]
     """
     try:
-        account: Any = User.query.filter(
-            User.active_address == active_address
-        ).one()
+        account: Any = User.query.filter(User.active_address == active_address).one()
     except saexc.NoResultFound:
         account = None
     account = (
@@ -127,9 +126,7 @@ def deser_transaction(client: SyncClient, txb_base64: str) -> SyncTransaction:
     return SyncTransaction(client, deserialize_from=txb_base64)
 
 
-def ready_transaction(
-    client: SyncClient, ctx: TransactionIn
-) -> SyncTransaction:
+def ready_transaction(client: SyncClient, ctx: TransactionIn) -> SyncTransaction:
     """Deserialize the transaction builder.
 
     :param client: The pysui client
@@ -299,9 +296,7 @@ def construct_multisig(msig_acct: MultiSignature) -> BaseMultiSig:
         for member in msig_acct.multisig_members:
             # if member.status == Ms
             base_weights.append(member.weight)
-            user: User = User.query.filter(
-                User.account_key == member.owner_id
-            ).one()
+            user: User = User.query.filter(User.account_key == member.owner_id).one()
             pkb = base64.b64decode(user.public_key)
             base_pkeys.append(SuiPublicKey(SignatureScheme(pkb[0]), pkb[1:]))
         return BaseMultiSig(base_pkeys, base_weights, msig_acct.threshold)
@@ -428,9 +423,7 @@ class CustomJSONEncoder(json.JSONEncoder):  # <<-- Add this custom encoder
 
     def default(self, o):
         """."""
-        if dataclasses.is_dataclass(
-            o
-        ):  # this serializes anything dataclass can handle
+        if dataclasses.is_dataclass(o):  # this serializes anything dataclass can handle
             return dataclasses.asdict(o)
         if isinstance(o, datetime):  # this adds support for datetime
             return o.isoformat()

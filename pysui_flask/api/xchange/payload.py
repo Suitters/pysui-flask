@@ -215,7 +215,7 @@ def deserialize_user_create(in_data: Union[dict, list]) -> InAccountSetup:
 class InMultiSigMember:
     """."""
 
-    account_key: str
+    active_address: str
     weight: int
 
 

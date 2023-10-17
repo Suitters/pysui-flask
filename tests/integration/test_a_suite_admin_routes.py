@@ -21,7 +21,6 @@ from flask.testing import FlaskClient
 from tests.integration.utils import (
     ADMIN_LOGIN_CREDS,
     check_error_expect,
-    clean_url_base64,
     login_admin,
     logoff_admin,
 )
@@ -111,7 +110,7 @@ def test_admin_create_account_data_errors(client: FlaskClient):
 
 def test_admin_account_not_found(client: FlaskClient):
     """Validate no account found."""
-    acc_key = clean_url_base64("AKkeo53DD/dra88PdTPhBngdbdTOBHJq8GrnWIfbKsb7")
+    acc_key = "0xa9e2db385f055cc0215a3cde268b76270535b9443807514f183be86926c219f4"
     response = client.get(f"/admin/account/{acc_key}", json=json.dumps({}))
     check_error_expect(response, -40)
 
@@ -173,13 +172,9 @@ def test_admin_create_msig(client: FlaskClient, sui_client: SyncClient):
     base_weight = 3
     members = []
     for acc in result:
-        members.append({"account_key": acc["account_key"], "weight": base_weight})
+        members.append({"active_address": acc["active_address"], "weight": base_weight})
         base_weight += 3
     threshold = 9
-
-    rpc_url = sui_client.config.rpc_url
-    # # Get 3 members
-    # msig_members = list(sui_client.config.addresses_and_keys.items())[0:3]
 
     msig_payload = {
         "members": members,
@@ -194,7 +189,7 @@ def test_admin_create_msig(client: FlaskClient, sui_client: SyncClient):
 
 def test_account_lock_unlock(client: FlaskClient, accounts: dict):
     """."""
-    account = clean_url_base64(accounts["users"][5]["account_key"])
+    account = accounts["users"][5]["active_address"]
     response = client.post(f"/admin/account/{account}/lock", json=json.dumps({}))
     assert response.status_code == 201
     response = client.post(f"/admin/account/{account}/unlock", json=json.dumps({}))

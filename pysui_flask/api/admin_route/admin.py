@@ -174,7 +174,7 @@ def _new_msig_reg(
             for member in ms_setup.members:
                 # Validate account for member exists
                 user: User = User.query.filter(
-                    User.account_key == member.account_key,
+                    User.active_address == member.active_address,
                 ).first()
                 # Build the member
                 if user:
@@ -312,11 +312,11 @@ def new_user_accounts():
     return {"created": user_result}, 201
 
 
-@admin_api.get("/account/<string:account_key>")
-def query_user_account(account_key):
-    """Get a user account by account key."""
+@admin_api.get("/account/<string:active_address>")
+def query_user_account(active_address):
+    """Get a user account by account active-address."""
     admin_login_required()
-    user: User = cmn.get_account_for_key(account_key)
+    user: User = cmn.get_account_for_address(active_address)
     if user:
         ujson = json.loads(json.dumps(user, cls=cmn.CustomJSONEncoder))
         ujson["configuration"] = json.loads(
@@ -326,7 +326,7 @@ def query_user_account(account_key):
             "account": OutUser(partial=True, unknown="exclude", many=False).load(ujson)
         }, 200
     raise APIError(
-        f"Account {account_key} not exist.",
+        f"Account {active_address} not exist.",
         ErrorCodes.ACCOUNT_NOT_FOUND,
     )
 
@@ -375,33 +375,33 @@ def query_user_accounts(page):
     }, 200
 
 
-@admin_api.post("/account/<string:account_key>/lock")
-def lock_acount(account_key):
+@admin_api.post("/account/<string:active_address>/lock")
+def lock_acount(active_address):
     """Lock user at account_key."""
     admin_login_required()
-    user: User = cmn.get_account_for_key(account_key)
+    user: User = cmn.get_account_for_address(active_address)
     if user:
         user.status = AccountStatus.locked
         db.session.commit()
-        return {"account_locked": account_key}, 201
+        return {"account_locked": active_address}, 201
     else:
         raise APIError(
-            f"Account with key: {account_key} not known",
+            f"Account with key: {active_address} not known",
             ErrorCodes.ACCOUNT_NOT_FOUND,
         )
 
 
-@admin_api.post("/account/<string:account_key>/unlock")
-def unlock_acount(account_key):
+@admin_api.post("/account/<string:active_address>/unlock")
+def unlock_acount(active_address):
     """Unlock user at account_key."""
     admin_login_required()
-    user: User = cmn.get_account_for_key(account_key)
+    user: User = cmn.get_account_for_address(active_address)
     if user:
         user.status = AccountStatus.active
         db.session.commit()
-        return {"account_unlocked": account_key}, 201
+        return {"account_unlocked": active_address}, 201
     else:
         raise APIError(
-            f"Account with key: {account_key} not known",
+            f"Account with key: {active_address} not known",
             ErrorCodes.ACCOUNT_NOT_FOUND,
         )

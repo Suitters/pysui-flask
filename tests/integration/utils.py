@@ -40,6 +40,7 @@ MSIG2_LOGIN_CREDS: dict = {"username": "FrankC02", "password": "Oxnard Gimble"}
 USER3_LOGIN_CREDS: dict = {"username": "FrankC03", "password": "Oxnard Gimble"}
 USER4_LOGIN_CREDS: dict = {"username": "FrankC04", "password": "Oxnard Gimble"}
 
+
 @dataclass_json
 @dataclass
 class PysuiAccount:
@@ -58,9 +59,6 @@ def check_error_expect(response, ecode):
     assert "error" in response.json
     assert response.json["error_code"] == ecode
 
-def clean_url_base64(input:str) -> str:
-    """Encode base64 is url safe."""
-    return base64.urlsafe_b64encode(base64.urlsafe_b64decode(input)).decode()
 
 def login_admin(
     client: FlaskClient, credentials: Optional[dict] = ADMIN_LOGIN_CREDS
@@ -117,9 +115,7 @@ def sign_request_for(
     result = response.json
     assert len(result["result"]["signing_requests"]) == 1
     sign_request = result["result"]["signing_requests"][0]
-    kp = sui_client.config.keypair_for_address(
-        SuiAddress(acc_data.active_address)
-    )
+    kp = sui_client.config.keypair_for_address(SuiAddress(acc_data.active_address))
     assert sign_request["status"] == 1
     assert (
         sign_request["signer_public_key"]
