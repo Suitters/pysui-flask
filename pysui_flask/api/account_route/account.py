@@ -105,6 +105,17 @@ def post_signature_request(
     return accounts_notified
 
 
+def new_template(account: User, payload: NewTemplate) -> Template:
+    """Create and add template to user account."""
+    template = Template()
+    template.template_visibility = payload.template_visibility
+    template.template_name = payload.template_name
+    template.serialized_builder = payload.template_builder
+    account.templates.append(template)
+    db.session.commit()
+    return template
+
+
 @account_api.get("/")
 def account():
     """Account root."""
@@ -208,11 +219,10 @@ def account_create_template():
             )
         else:
             # Good, store
-            pass
+            created_temp: Template = new_template(user, payload)
+            return {"template_created": created_temp.id}, 201
     except Exception as exc:
         raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
-
-    return {"stored": True}, 201
 
 
 @account_api.get("/pysui_txn_template/<int:tx_template_id>")

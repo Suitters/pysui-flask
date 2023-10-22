@@ -69,10 +69,12 @@ def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
     response = client.post(
         "/account/pysui_txn_template", json=json.dumps(template_dict)
     )
+    _ = logoff_user(client)
     assert response.status_code == 201
     assert "error" not in response.json
     result = response.json
-    _ = logoff_user(client)
+    assert "template_created" in result["result"]
+    assert result["result"]["template_created"] == 1
 
 
 def test_pysui_tx_template_fetch(client: FlaskClient):
