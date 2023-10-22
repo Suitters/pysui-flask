@@ -59,8 +59,10 @@ def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     template_dict = {
-        "template_name": "Foo",
+        "template_name": "Template 1",
         "template_visibility": 1,
+        "template_version": "0.0.0",
+        "template_overrides": [{"input_index": 0}],
         "template_builder": base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
         ).decode(),

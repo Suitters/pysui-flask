@@ -158,9 +158,39 @@ class Template(db.Model):
     # This is the SuiTransaction builder serialized string
     serialized_builder: str = db.Column(db.String(200000), nullable=False)
 
+    template_overrides: str = db.Column(db.String, nullable=False)
+
     # Owner (user) ID of the account
     owner_id: str = db.Column(
         db.String, db.ForeignKey("user.account_key"), nullable=False
+    )
+
+    # May or may not have overrides
+    overrides = db.relationship(
+        "TemplateOverride",
+        backref="template",
+        lazy=True,
+        uselist=True,
+        cascade="all, delete-orphan",
+    )
+
+
+@dataclasses.dataclass
+class TemplateOverride(db.Model):
+    """Template override position."""
+
+    id: int = db.Column(
+        "template_override_id",
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    # visibility
+    input_index: int = db.Column(db.Integer, nullable=False)
+    # Owner (user) ID of the account
+    owner_id: str = db.Column(
+        db.String, db.ForeignKey("template.template_id"), nullable=False
     )
 
 

@@ -22,6 +22,7 @@ from pysui_flask.db_tables import (
     db,
     User,
     Template,
+    TemplateOverride,
     TemplateVisibility,
     AccountStatus,
     SigningAs,
@@ -111,6 +112,14 @@ def new_template(account: User, payload: NewTemplate) -> Template:
     template.template_visibility = payload.template_visibility
     template.template_name = payload.template_name
     template.serialized_builder = payload.template_builder
+    if isinstance(payload.template_overrides, list):
+        for ovr in payload.template_overrides:
+            ovrd = TemplateOverride()
+            ovrd.input_index = ovr.input_index
+            template.overrides.append(ovrd)
+        template.template_overrides = "list"
+    else:
+        template.template_overrides = payload.template_overrides
     account.templates.append(template)
     db.session.commit()
     return template

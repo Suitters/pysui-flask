@@ -15,7 +15,7 @@
 
 import base64
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Optional, Union, Any
 from dataclasses_json import dataclass_json
 
 from marshmallow import (
@@ -392,41 +392,74 @@ class PwdChange:
 
 @dataclass_json
 @dataclass
+class NewTemplateOverride:
+    """Template creation payload."""
+
+    input_index: int
+
+
+@dataclass_json
+@dataclass
 class NewTemplate:
     """Template creation payload."""
 
     template_name: str
+    template_version: str
     template_builder: str
     template_visibility: str
+    template_overrides: Any
+
+    def __post_init__(self):
+        """Override fixup."""
+        if isinstance(self.template_overrides, list):
+            self.template_overrides = [
+                NewTemplateOverride.from_dict(x) for x in self.template_overrides
+            ]
+        elif self.template_overrides.lower() not in ["all", "none"]:
+            raise ValueError(f"Template override {self.template_overrides} not known.")
+        else:
+            self.template_overrides = self.template_overrides.lower()
 
 
 if __name__ == "__main__":
-    denied = SigningRejected(
-        cause="Don't want to",
-    )
-    payload = SigningResponse(request_id=5, rejected_outcome=denied)
-    pjson = payload.to_json()
-    nload = SigningResponse.from_json(pjson)
-    print(nload)
-    good_content = [
+    all_ntemp = NewTemplate.from_dict(
         {
-            "members": [
-                {
-                    "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
-                    "weight": 1,
-                },
-                {
-                    "account_key": "0x489e24d1b1adbbdb52d89dd83ba60f4943c0029ad314fa281b3ef1842c2c9580",
-                    "weight": 1,
-                },
-            ],
-            "threshold": 2,
-            "name": "FrankC0",
-            # "requires_attestation": False,
+            "template_name": "foo",
+            "template_version": "0.0.0",
+            "template_builder": "AAA",
+            "template_visibility": 1,
+            "template_overrides": "All",
         }
-    ]
+    )
+    print(all_ntemp)
+    none_ntemp = NewTemplate.from_dict(
+        {
+            "template_name": "foo",
+            "template_version": "0.0.0",
+            "template_builder": "AAA",
+            "template_visibility": 1,
+            "template_overrides": "none",
+        }
+    )
+    print(none_ntemp)
+    some_ntemp = NewTemplate.from_dict(
+        {
+            "template_name": "foo",
+            "template_version": "0.0.0",
+            "template_builder": "AAA",
+            "template_visibility": 1,
+            "template_overrides": [{"input_index": 0}],
+        }
+    )
+    print(some_ntemp.to_json(indent=2))
 
-    x = deserialize_msig_create(good_content)
-    print(x)
-    # print(x.to_json(indent=2))
-    # print(_ms_setup_schema.load(good_content))
+    some_ntemp = NewTemplate.from_dict(
+        {
+            "template_name": "foo",
+            "template_version": "0.0.0",
+            "template_builder": "AAA",
+            "template_visibility": 1,
+            "template_overrides": "float",
+        }
+    )
+    print(some_ntemp.to_json(indent=2))
