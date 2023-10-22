@@ -18,6 +18,9 @@ __pycache__/
 flask_session/
 instance/
 
+# Pipenv
+Pipfile.lock
+
 # Misc
 scratch_*
 sui.log.*

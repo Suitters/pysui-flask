@@ -39,9 +39,7 @@ def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and inspecting a SuiTransaction."""
     txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
-    txer.transfer_objects(
-        transfers=[scoin], recipient=sui_client.config.active_address
-    )
+    txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     inspect_dict = {
         "tx_base64": base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
@@ -55,13 +53,53 @@ def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
     _ = logoff_user(client)
 
 
+def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
+    """Test deserializing and inspecting a SuiTransaction."""
+    txer = SyncTransaction(sui_client)
+    scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
+    txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
+    template_dict = {
+        "template_name": "Foo",
+        "template_visibility": 1,
+        "template_builder": base64.b64encode(
+            txer.serialize(include_sender_sponsor=False)
+        ).decode(),
+    }
+    _ = login_user(client, USER_LOGIN_CREDS)
+    response = client.post(
+        "/account/pysui_txn_template", json=json.dumps(template_dict)
+    )
+    assert response.status_code == 201
+    assert "error" not in response.json
+    result = response.json
+    _ = logoff_user(client)
+
+
+def test_pysui_tx_template_fetch(client: FlaskClient):
+    """Test deserializing and inspecting a SuiTransaction."""
+    _ = login_user(client, USER_LOGIN_CREDS)
+    response = client.get("/account/pysui_txn_template/1", json=json.dumps({}))
+    assert response.status_code == 200
+    assert "error" not in response.json
+    result = response.json
+    _ = logoff_user(client)
+
+
+def test_pysui_tx_templates_fetch(client: FlaskClient):
+    """Test deserializing and inspecting a SuiTransaction."""
+    _ = login_user(client, USER_LOGIN_CREDS)
+    response = client.get("/account/pysui_txn_templates", json=json.dumps({}))
+    assert response.status_code == 200
+    assert "error" not in response.json
+    result = response.json
+    _ = logoff_user(client)
+
+
 def test_pysui_tx_verification(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and inspecting a SuiTransaction."""
     txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
-    txer.transfer_objects(
-        transfers=[scoin], recipient=sui_client.config.active_address
-    )
+    txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     inspect_dict = {
         "tx_base64": base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
@@ -108,9 +146,7 @@ def test_pysui_tx_execute(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and submitting a SuiTransaction."""
     txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
-    txer.transfer_objects(
-        transfers=[scoin], recipient=sui_client.config.active_address
-    )
+    txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     txin = TransactionIn(
         tx_builder=base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
@@ -139,16 +175,12 @@ def test_transactions(client: FlaskClient):
     _ = logoff_user(client)
 
 
-def test_pysui_tx_execute_deny_sig(
-    client: FlaskClient, sui_client: SyncClient
-):
+def test_pysui_tx_execute_deny_sig(client: FlaskClient, sui_client: SyncClient):
     """Test denying a signature request."""
     # Create the transaction
     txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
-    txer.transfer_objects(
-        transfers=[scoin], recipient=sui_client.config.active_address
-    )
+    txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     txin = TransactionIn(
         tx_builder=base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
@@ -172,9 +204,7 @@ def test_pysui_tx_execute_deny_sig(
     assert len(result["result"]["signing_requests"]) == 1
     # Deny the signature
     sign_request = result["result"]["signing_requests"][0]
-    kp = sui_client.config.keypair_for_address(
-        sui_client.config.active_address
-    )
+    kp = sui_client.config.keypair_for_address(sui_client.config.active_address)
     assert sign_request["status"] == 1
     assert (
         sign_request["signer_public_key"]
@@ -196,7 +226,8 @@ def test_pysui_tx_execute_deny_sig(
     assert result["result"]["signature_response"] == "denied"
     _ = logoff_user(client)
 
-def _msig_data_by_name(name:str, block: list[dict]) -> dict:
+
+def _msig_data_by_name(name: str, block: list[dict]) -> dict:
     """Find msig account data block by name."""
 
     for msig in block:
@@ -205,7 +236,7 @@ def _msig_data_by_name(name:str, block: list[dict]) -> dict:
     return None
 
 
-def _user_data_by_name(name:str, block: list[dict]) -> dict:
+def _user_data_by_name(name: str, block: list[dict]) -> dict:
     """Find account data block by name."""
 
     for user in block:
@@ -213,7 +244,10 @@ def _user_data_by_name(name:str, block: list[dict]) -> dict:
             return user
     return None
 
-def _mmember_data_by_index(index:int, msig_block: dict,user_block:list[dict]) -> dict:
+
+def _mmember_data_by_index(
+    index: int, msig_block: dict, user_block: list[dict]
+) -> dict:
     """Find account data block by name."""
     member = msig_block["multisig_members"][index]
 
@@ -223,19 +257,20 @@ def _mmember_data_by_index(index:int, msig_block: dict,user_block:list[dict]) ->
 
     return None
 
-def test_pysui_tx_with_msig(client: FlaskClient, sui_client: SyncClient, accounts:dict):
+
+def test_pysui_tx_with_msig(
+    client: FlaskClient, sui_client: SyncClient, accounts: dict
+):
     """Test msig signing."""
 
     # Get Msig account_key
-    msig_block = _msig_data_by_name("Msig01",accounts["multi_signatures"])
+    msig_block = _msig_data_by_name("Msig01", accounts["multi_signatures"])
     msig_addy = SuiAddress(msig_block["active_address"])
 
     # Sync user
     _ = login_user(client, USER_LOGIN_CREDS)
     sender_account: PysuiAccount = account_data(client)
-    sender_active_addy = SuiAddress(
-        sender_account.active_address
-    )
+    sender_active_addy = SuiAddress(sender_account.active_address)
     # Create the transaction that puts gas in msig address
     txer = SyncTransaction(sui_client, initial_sender=sender_active_addy)
     scoin = txer.split_coin(coin=txer.gas, amounts=[10000000000])
@@ -279,8 +314,8 @@ def test_pysui_tx_with_msig(client: FlaskClient, sui_client: SyncClient, account
     _ = logoff_user(client)
 
     # Get 2 of the sigs
-    mmem1_account = _mmember_data_by_index(0,msig_block,accounts["users"])
-    mmem2_account = _mmember_data_by_index(1,msig_block,accounts["users"])
+    mmem1_account = _mmember_data_by_index(0, msig_block, accounts["users"])
+    mmem2_account = _mmember_data_by_index(1, msig_block, accounts["users"])
 
     # Create the transaction that puts some msig gas back to orig
     txer = SyncTransaction(sui_client, initial_sender=msig_addy)
@@ -323,16 +358,17 @@ def test_pysui_tx_with_msig(client: FlaskClient, sui_client: SyncClient, account
     assert result["result"]["transactions"]
     _ = logoff_user(client)
 
-def test_pysui_tx_sponsor(client: FlaskClient, sui_client: SyncClient, accounts:dict):
+
+def test_pysui_tx_sponsor(client: FlaskClient, sui_client: SyncClient, accounts: dict):
     """Test msig signing."""
 
     # Get Msig account_key
-    msig_block = _msig_data_by_name("Msig01",accounts["multi_signatures"])
+    msig_block = _msig_data_by_name("Msig01", accounts["multi_signatures"])
     msig_addy = SuiAddress(msig_block["active_address"])
 
     # Get 2 of the sigs
-    mmem1_account = _mmember_data_by_index(0,msig_block,accounts["users"])
-    mmem2_account = _mmember_data_by_index(1,msig_block,accounts["users"])
+    mmem1_account = _mmember_data_by_index(0, msig_block, accounts["users"])
+    mmem2_account = _mmember_data_by_index(1, msig_block, accounts["users"])
 
     # Sync user
     sender_active_addy = SuiAddress(mmem1_account["active_address"])
@@ -344,7 +380,10 @@ def test_pysui_tx_sponsor(client: FlaskClient, sui_client: SyncClient, accounts:
         tx_builder=base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
         ).decode(),
-        signers=Signers(sender=mmem1_account["active_address"],sponsor=mmem2_account["active_address"])
+        signers=Signers(
+            sender=mmem1_account["active_address"],
+            sponsor=mmem2_account["active_address"],
+        ),
     )
     # Post the transaction
     _ = login_user(client, MSIG1_LOGIN_CREDS)
@@ -357,19 +396,22 @@ def test_pysui_tx_sponsor(client: FlaskClient, sui_client: SyncClient, accounts:
     result = response.json
     assert result["result"]["signature_response"] == "signed_and_executed"
 
-def test_pysui_tx_msig_sponsor(client: FlaskClient, sui_client: SyncClient, accounts:dict):
+
+def test_pysui_tx_msig_sponsor(
+    client: FlaskClient, sui_client: SyncClient, accounts: dict
+):
     """Test msig sponsoring."""
 
     # Get Msig account_key
-    msig_block = _msig_data_by_name("Msig01",accounts["multi_signatures"])
+    msig_block = _msig_data_by_name("Msig01", accounts["multi_signatures"])
 
     # Get 2 of the sigs
-    mmem1_account = _mmember_data_by_index(0,msig_block,accounts["users"])
-    mmem2_account = _mmember_data_by_index(1,msig_block,accounts["users"])
+    mmem1_account = _mmember_data_by_index(0, msig_block, accounts["users"])
+    mmem2_account = _mmember_data_by_index(1, msig_block, accounts["users"])
 
     # Get 2 other users
-    mmem3_account = _user_data_by_name("FrankC03",accounts["users"])
-    mmem4_account = _user_data_by_name("FrankC04",accounts["users"])
+    mmem3_account = _user_data_by_name("FrankC03", accounts["users"])
+    mmem4_account = _user_data_by_name("FrankC04", accounts["users"])
 
     # Sync user
     sender_active_addy = SuiAddress(mmem3_account["active_address"])
@@ -382,13 +424,16 @@ def test_pysui_tx_msig_sponsor(client: FlaskClient, sui_client: SyncClient, acco
         tx_builder=base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
         ).decode(),
-        signers=Signers(sender=mmem3_account["active_address"],sponsor=MultiSig(
+        signers=Signers(
+            sender=mmem3_account["active_address"],
+            sponsor=MultiSig(
                 msig_account=msig_block["active_address"],
                 msig_signers=[
                     mmem1_account["active_address"],
                     mmem2_account["active_address"],
                 ],
-            ))
+            ),
+        ),
     )
     # Post the transaction
     _ = login_user(client, USER3_LOGIN_CREDS)

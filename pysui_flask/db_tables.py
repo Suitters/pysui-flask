@@ -21,24 +21,26 @@ from . import db
 
 # from flask.json import JSONEncoder
 
-class AccountStatus(enum.Enum):
-    """Extend as needed."""
 
-    active = 1
-    locked = 2
+class AccountStatus(enum.Enum):
+    """Used on User accounts."""
+
+    active = 1  # An active account
+    locked = 2  # An account that is locked
+
 
 class SignatureStatus(enum.Enum):
-    """Extend as needed."""
+    """Tracker signature status."""
 
-    pending_signers = 1  # When all signers pending
-    partially_completed = 2  # When not all have signed yet
-    denied = 3  # If any one has denied
+    pending_signers = 1  # All signers pending (initial state)
+    partially_completed = 2  # At least 1 signature
+    denied = 3  # If any one has denied, the entire transaction won't run
     signed = 4  # When all signed
-    signed_and_executed = 5  # When already executed
+    signed_and_executed = 5  # When signed and executed
 
 
 class SignerStatus(enum.Enum):
-    """Extend as needed."""
+    """Individual signature status."""
 
     pending = 1  # Waiting for signature
     signed = 2  # Signed, ready to go
@@ -46,28 +48,35 @@ class SignerStatus(enum.Enum):
 
 
 class SigningAs(enum.Enum):
-    """Extend as needed."""
+    """Flags what each signature role is in transaction."""
 
     tx_sender = 1  # Am I being asked to sign as sender or sponsor (both if no sponsor identified)
     tx_sponsor = 2  # Am I being asked to sign and pay for transaction
 
 
 class MultiSigStatus(enum.Enum):
-    """Extend as needed."""
+    """Status of the creation of a multisig."""
 
-    pending_attestation = 1
-    confirmed = 2
-    denied = 3
-    invalid = 4
+    pending_attestation = 1  # When first created and requires member attestation
+    confirmed = 2  # All members affirmed or creator confirmed on creation
+    denied = 3  # At least 1 member denied participation
+    invalid = 4  # If a member drops out of being a signer
 
 
 class MsMemberStatus(enum.Enum):
-    """Extend as needed."""
+    """Member of multisig status."""
 
-    request_attestation = 1
-    confirmed = 2
-    denied = 3
-    dropped = 4
+    request_attestation = 1  # Requires affirmation by member
+    confirmed = 2  # Member is confirmed either through affirmation or on creation
+    denied = 3  # Member does not want to particpate
+    dropped = 4  # Member has dropped out of multi-sig, making it invalid
+
+
+class TemplateVisibility(enum.Enum):
+    """Indicates visibility."""
+
+    owned = 1  # This transaction template is exclusive to user account
+    shared = 2  # This transaction template is available to all
 
 
 @dataclasses.dataclass
@@ -95,8 +104,9 @@ class User(db.Model):
     creation_date: datetime = db.Column(
         db.DateTime(timezone=True), default=datetime.utcnow
     )
-    status: int = db.Column(db.Enum(AccountStatus), nullable=False, default=AccountStatus.active)
-    # May or may not have a multisig config
+    status: int = db.Column(
+        db.Enum(AccountStatus), nullable=False, default=AccountStatus.active
+    )
     # May or may not be a member of multisig
     multisig_member = db.relationship(
         "MultiSigMember",
@@ -112,6 +122,45 @@ class User(db.Model):
         lazy=True,
         uselist=True,
         cascade="all, delete-orphan",
+    )
+    # May or may not have templates
+    templates = db.relationship(
+        "Template",
+        backref="user",
+        lazy=True,
+        uselist=True,
+        cascade="all, delete-orphan",
+    )
+
+
+# Templates
+
+
+@dataclasses.dataclass
+class Template(db.Model):
+    """Template container."""
+
+    id: int = db.Column(
+        "template_id",
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    # Name for template
+    template_name: str = db.Column(db.String(64), nullable=False)
+
+    # visibility
+    template_visibility: int = db.Column(
+        db.Enum(TemplateVisibility), nullable=False, default=TemplateVisibility.owned
+    )
+
+    # This is the SuiTransaction builder serialized string
+    serialized_builder: str = db.Column(db.String(200000), nullable=False)
+
+    # Owner (user) ID of the account
+    owner_id: str = db.Column(
+        db.String, db.ForeignKey("user.account_key"), nullable=False
     )
 
 

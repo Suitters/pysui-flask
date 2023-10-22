@@ -43,6 +43,7 @@ class ErrorCodes(IntEnum):
     PYSUI_MS_MEMBER_NO_ACCOUNT: int = -1004
     PUBLICKEY_MULTISIG_MEMBER: int = -1005
     PUBLICKEY_SIGNATURES_EXIST: int = -1006
+    PYSUI_TRANSACTION_FAILED_VERIFICATION: int = -1007
     # Occurs when object in transaction does belong to sender or sponsor
     PYSUI_INVALID_OBJECT_OWNERSHIP: int = -1020
     # sui errors

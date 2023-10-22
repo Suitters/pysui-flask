@@ -21,6 +21,8 @@ from flask import session, request, current_app
 from pysui_flask.db_tables import (
     db,
     User,
+    Template,
+    TemplateVisibility,
     AccountStatus,
     SigningAs,
     SignerStatus,
@@ -35,7 +37,7 @@ import pysui_flask.api.common as cmn
 from pysui_flask.api_error import ErrorCodes, APIError
 from pysui_flask.api.xchange.payload import *
 from pysui_flask.api.signing import signature_update
-from pysui import SuiRpcResult
+from pysui import SuiRpcResult, SyncClient
 from pysui.sui.sui_txn import SyncTransaction
 
 
@@ -181,6 +183,51 @@ def account_set_password():
         session["chg_pwd_attempts"] = 0
         return {"changed": True}, 201
     return {"changed": False, "reason": "locked"}, 200
+
+
+@account_api.post("/pysui_txn_template")
+def account_create_template():
+    """Submit a serialized SuiTransaction to use as template."""
+    _user_login_required()
+    try:
+        payload: NewTemplate = NewTemplate.from_json(request.get_json())
+        payload.template_visibility = TemplateVisibility(
+            int(payload.template_visibility)
+        )
+        user: User = User.query.filter(User.account_key == session["user_key"]).first()
+        client: SyncClient = cmn.client_for_address(user.active_address)
+        tx_builder: SyncTransaction = cmn.deser_transaction(
+            client, payload.template_builder
+        )
+        _base_constr, error_rpt = tx_builder.verify_transaction()
+        if error_rpt:
+            raise APIError(
+                "Failed verification",
+                ErrorCodes.PYSUI_TRANSACTION_FAILED_VERIFICATION,
+                error_rpt,
+            )
+        else:
+            # Good, store
+            pass
+    except Exception as exc:
+        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
+
+    return {"stored": True}, 201
+
+
+@account_api.get("/pysui_txn_template/<int:tx_template_id>")
+def account_get_template(tx_template_id: int):
+    """Fetch a template by it's ID."""
+    _user_login_required()
+    return {"data": None}, 200
+
+
+# TODO: Add paging constructs
+@account_api.get("/pysui_txn_templates")
+def account_get_templates():
+    """Fetch multiple templates, payload adds fitering."""
+    _user_login_required()
+    return {"data": []}, 200
 
 
 @account_api.get("/pysui_txn")

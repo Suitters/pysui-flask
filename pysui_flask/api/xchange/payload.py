@@ -390,6 +390,16 @@ class PwdChange:
     new_pwd: str
 
 
+@dataclass_json
+@dataclass
+class NewTemplate:
+    """Template creation payload."""
+
+    template_name: str
+    template_builder: str
+    template_visibility: str
+
+
 if __name__ == "__main__":
     denied = SigningRejected(
         cause="Don't want to",
