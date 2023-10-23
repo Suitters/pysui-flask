@@ -62,7 +62,7 @@ def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
         "template_name": "Template 1",
         "template_visibility": 1,
         "template_version": "0.0.0",
-        "template_overrides": [{"input_index": 0}],
+        "template_overrides": "all",  # [{"input_index": 0}],
         "template_builder": base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
         ).decode(),
@@ -76,17 +76,21 @@ def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
     assert "error" not in response.json
     result = response.json
     assert "template_created" in result["result"]
-    assert result["result"]["template_created"] == 1
+    assert result["result"]["template_created"]["id"] == 1
+    assert result["result"]["template_created"]["name"] == "Template 1"
 
 
 def test_pysui_tx_template_fetch(client: FlaskClient):
     """Test deserializing and inspecting a SuiTransaction."""
     _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get("/account/pysui_txn_template/1", json=json.dumps({}))
+    _ = logoff_user(client)
     assert response.status_code == 200
     assert "error" not in response.json
     result = response.json
-    _ = logoff_user(client)
+    assert "template" in result["result"]
+    assert result["result"]["template"]["id"] == 1
+    assert result["result"]["template"]["template_name"] == "Template 1"
 
 
 def test_pysui_tx_templates_fetch(client: FlaskClient):

@@ -229,16 +229,31 @@ def account_create_template():
         else:
             # Good, store
             created_temp: Template = new_template(user, payload)
-            return {"template_created": created_temp.id}, 201
+            return {
+                "template_created": {
+                    "id": created_temp.id,
+                    "name": created_temp.template_name,
+                }
+            }, 201
     except Exception as exc:
         raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
 
 
-@account_api.get("/pysui_txn_template/<int:tx_template_id>")
-def account_get_template(tx_template_id: int):
+@account_api.get("/pysui_txn_template/<int:template_id>")
+def account_get_template(template_id: int):
     """Fetch a template by it's ID."""
     _user_login_required()
-    return {"data": None}, 200
+    try:
+        template: Template = Template.query.filter(Template.id == template_id).first()
+        jsc = json.loads(json.dumps(template, cls=cmn.CustomJSONEncoder))
+        jsc["overrides"] = [x.input_index for x in template.overrides]
+        jsc.pop("owner_id")
+        data = {"template": jsc}
+
+    except Exception as exc:
+        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
+
+    return data, 200
 
 
 # TODO: Add paging constructs
