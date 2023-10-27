@@ -62,14 +62,14 @@ def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
         "template_name": "Template 1",
         "template_visibility": 1,
         "template_version": "0.0.0",
-        "template_overrides": "all",  # [{"input_index": 0}],
+        "template_overrides": [{"input_index": 0, "override_required": True}],  # "all",
         "template_builder": base64.b64encode(
             txer.serialize(include_sender_sponsor=False)
         ).decode(),
     }
     _ = login_user(client, USER_LOGIN_CREDS)
     response = client.post(
-        "/account/pysui_txn_template", json=json.dumps(template_dict)
+        "/account/pysui_new_template", json=json.dumps(template_dict)
     )
     _ = logoff_user(client)
     assert response.status_code == 201
@@ -98,6 +98,18 @@ def test_pysui_tx_templates_fetch(client: FlaskClient):
     _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get("/account/pysui_txn_templates", json=json.dumps({}))
     assert response.status_code == 200
+    assert "error" not in response.json
+    result = response.json
+    _ = logoff_user(client)
+
+
+def test_pysui_tx_templates_submit(client: FlaskClient):
+    """Test deserializing and inspecting a SuiTransaction."""
+    _ = login_user(client, USER_LOGIN_CREDS)
+    response = client.post(
+        "/account/pysui_txn_template", json=json.dumps({"tx_template_id": 1})
+    )
+    assert response.status_code == 201
     assert "error" not in response.json
     result = response.json
     _ = logoff_user(client)

@@ -186,8 +186,10 @@ class TemplateOverride(db.Model):
         autoincrement=True,
     )
 
-    # visibility
+    # Input identity
     input_index: int = db.Column(db.Integer, nullable=False)
+    # Override required
+    input_required: bool = db.Column(db.Boolean, nullable=False)
     # Owner (user) ID of the account
     owner_id: str = db.Column(
         db.String, db.ForeignKey("template.template_id"), nullable=False

@@ -396,6 +396,7 @@ class NewTemplateOverride:
     """Template creation payload."""
 
     input_index: int
+    override_required: bool
 
 
 @dataclass_json
@@ -416,50 +417,108 @@ class NewTemplate:
                 NewTemplateOverride.from_dict(x) for x in self.template_overrides
             ]
         elif self.template_overrides.lower() not in ["all", "none"]:
-            raise ValueError(f"Template override {self.template_overrides} not known.")
+            raise ValueError(f"Template override {self.template_overrides} invalid.")
         else:
             self.template_overrides = self.template_overrides.lower()
 
 
-if __name__ == "__main__":
-    all_ntemp = NewTemplate.from_dict(
-        {
-            "template_name": "foo",
-            "template_version": "0.0.0",
-            "template_builder": "AAA",
-            "template_visibility": 1,
-            "template_overrides": "All",
-        }
-    )
-    print(all_ntemp)
-    none_ntemp = NewTemplate.from_dict(
-        {
-            "template_name": "foo",
-            "template_version": "0.0.0",
-            "template_builder": "AAA",
-            "template_visibility": 1,
-            "template_overrides": "none",
-        }
-    )
-    print(none_ntemp)
-    some_ntemp = NewTemplate.from_dict(
-        {
-            "template_name": "foo",
-            "template_version": "0.0.0",
-            "template_builder": "AAA",
-            "template_visibility": 1,
-            "template_overrides": [{"input_index": 0}],
-        }
-    )
-    print(some_ntemp.to_json(indent=2))
+@dataclass_json
+@dataclass
+class ExecuteTemplateOverride:
+    """Template execution overrides."""
 
-    some_ntemp = NewTemplate.from_dict(
+    input_index: int
+    input_value: Any
+    input_type: Optional[str] = None
+
+    def __post_init__(self):
+        """Override validate."""
+        if self.input_type and self.input_type not in [
+            "pure",
+            "object",
+            "shared_object",
+            "receiving_object",
+        ]:
+            raise ValueError(
+                f"Template override input_type '{self.input_type}' invalid."
+            )
+
+
+@dataclass_json
+@dataclass
+class ExecuteTemplate:
+    """Template execution payload."""
+
+    # SuiTransaction (builder) template id
+    tx_template_id: int
+    # Input overrides
+    input_overrides: Optional[list[ExecuteTemplateOverride]] = field(
+        default_factory=list
+    )
+    # Should transaction be verified
+    verify: Optional[bool] = None
+    # Explicit gas budget option
+    gas_budget: Optional[str] = None
+    # Explicit gas object option (gas comes from sponsor if indicated)
+    gas_object: Optional[str] = None
+    # Accounts to notify, defaults to requestor
+    signers: Optional[Signers] = None
+
+    def to_tx_in(self, tx_builder: str) -> TransactionIn:
+        """Convert to ready to submit transaction payload."""
+        return TransactionIn(
+            tx_builder, self.verify, self.gas_budget, self.gas_object, self.signers
+        )
+
+
+if __name__ == "__main__":
+    temp_exec: ExecuteTemplate = ExecuteTemplate.from_dict(
         {
-            "template_name": "foo",
-            "template_version": "0.0.0",
-            "template_builder": "AAA",
-            "template_visibility": 1,
-            "template_overrides": "float",
+            "tx_template_id": 1,
+            "input_overrides": [
+                {"input_index": 0, "input_type": "object", "input_value": b"Foo"}
+            ],
         }
     )
-    print(some_ntemp.to_json(indent=2))
+    print(temp_exec.to_json(indent=2))
+    # all_ntemp = NewTemplate.from_dict(
+    #     {
+    #         "template_name": "foo",
+    #         "template_version": "0.0.0",
+    #         "template_builder": "AAA",
+    #         "template_visibility": 1,
+    #         "template_overrides": "All",
+    #     }
+    # )
+    # print(all_ntemp)
+    # none_ntemp = NewTemplate.from_dict(
+    #     {
+    #         "template_name": "foo",
+    #         "template_version": "0.0.0",
+    #         "template_builder": "AAA",
+    #         "template_visibility": 1,
+    #         "template_overrides": "none",
+    #     }
+    # )
+    # print(none_ntemp)
+    # some_ntemp = NewTemplate.from_dict(
+    #     {
+    #         "template_name": "foo",
+    #         "template_version": "0.0.0",
+    #         "template_builder": "AAA",
+    #         "template_visibility": 1,
+    #         "template_overrides": [{"input_index": 0}],
+    #     }
+    # )
+    # print(some_ntemp.to_json(indent=2))
+
+    # some_ntemp = NewTemplate.from_dict(
+    #     {
+    #         "template_name": "foo",
+    #         "template_version": "0.0.0",
+    #         "template_builder": "AAA",
+    #         "template_visibility": 1,
+    #         "template_overrides": "float",
+    #     }
+    # )
+    # print(some_ntemp.to_json(indent=2))

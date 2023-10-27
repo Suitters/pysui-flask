@@ -17,6 +17,7 @@ import json
 
 # from http import HTTPStatus
 from flask import session, request, current_app
+from pysui_flask.api.account_route.tmplu import template_payload_to_tx
 
 from pysui_flask.db_tables import (
     db,
@@ -116,6 +117,7 @@ def new_template(account: User, payload: NewTemplate) -> Template:
         for ovr in payload.template_overrides:
             ovrd = TemplateOverride()
             ovrd.input_index = ovr.input_index
+            ovrd.input_required = ovr.override_required
             template.overrides.append(ovrd)
         template.template_overrides = "list"
     else:
@@ -205,7 +207,7 @@ def account_set_password():
     return {"changed": False, "reason": "locked"}, 200
 
 
-@account_api.post("/pysui_txn_template")
+@account_api.post("/pysui_new_template")
 def account_create_template():
     """Submit a serialized SuiTransaction to use as template."""
     _user_login_required()
@@ -289,21 +291,15 @@ def account_inspect_or_validate_transaction():
     raise APIError("Missing 'tx_base64' string", ErrorCodes.PYSUI_ERROR_BASE)
 
 
-@account_api.post("/pysui_txn")
-def account_submit_transaction():
-    """Deserialize and execute builder construct."""
-    _user_login_required()
-    try:
-        payload: TransactionIn = TransactionIn.from_json(request.get_json())
-    except Exception as exc:
-        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
+def _submit_transaction(account_key: str, payload: TransactionIn):
+    """Heaving lifting transaction submission."""
     # Verify signatures and return user model
     sig_req: cmn.SignersRes = cmn.verify_tx_signers_existence(
-        requestor=session["user_key"], payload=payload
+        requestor=account_key, payload=payload
     )
-    client, user = cmn.client_for_account(session["user_key"])
+    client, _user = cmn.client_for_account(account_key)
 
-    txer = cmn.deser_transaction(client, payload.tx_builder)
+    txer: SyncTransaction = cmn.deser_transaction(client, payload.tx_builder)
     try:
         # Setup sender
         txer.signer_block.sender = cmn.construct_sender(sig_req)
@@ -331,6 +327,38 @@ def account_submit_transaction():
         return {"accounts_posted": requests_submitted}, 201
     except Exception as exc:
         raise APIError(f"Exception {exc.args[0]}", ErrorCodes.CONTENT_TYPE_ERROR)
+
+
+@account_api.post("/pysui_txn")
+def account_submit_transaction():
+    """Deserialize and execute builder construct."""
+    _user_login_required()
+    try:
+        payload: TransactionIn = TransactionIn.from_json(request.get_json())
+    except Exception as exc:
+        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
+    return _submit_transaction(session["user_key"], payload)
+
+
+@account_api.post("/pysui_txn_template")
+def account_submit_template_transaction():
+    """Deserialize and execute template builder construct."""
+    _user_login_required()
+    try:
+        payload: ExecuteTemplate = ExecuteTemplate.from_json(request.get_json())
+        template: Template = Template.query.filter(
+            Template.id == payload.tx_template_id
+        ).first()
+        tx_in: TransactionIn = template_payload_to_tx(
+            session["user_key"], payload, template
+        )
+
+        return {"accounts_posted": ["1"]}, 201
+        # user: User = User.query.filter(User.account_key == session["user_key"]).first()
+        # Resolve inputs if any
+        # payload: TransactionIn = cmn.reconcile_template(user,template,payload)
+    except Exception as exc:
+        raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
 
 
 def _requested_filtered(
