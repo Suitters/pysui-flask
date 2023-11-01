@@ -19,7 +19,8 @@ from dataclasses import dataclass
 from typing import Any, Optional
 from dataclasses_json import dataclass_json
 from flask.testing import FlaskClient
-from pysui import SyncClient, SuiAddress
+from pysui import SyncClient, SuiAddress, SuiConfig
+from pysui.sui.sui_txresults.single_tx import SuiCoinObject
 
 from pysui_flask.api.xchange.payload import (
     SignRequestFilter,
@@ -39,6 +40,9 @@ MSIG2_LOGIN_CREDS: dict = {"username": "FrankC02", "password": "Oxnard Gimble"}
 
 USER3_LOGIN_CREDS: dict = {"username": "FrankC03", "password": "Oxnard Gimble"}
 USER4_LOGIN_CREDS: dict = {"username": "FrankC04", "password": "Oxnard Gimble"}
+
+USER5_LOGIN_CREDS: dict = {"username": "FrankC05", "password": "Oxnard Gimble"}
+USER6_LOGIN_CREDS: dict = {"username": "FrankC06", "password": "Oxnard Gimble"}
 
 
 @dataclass_json
@@ -139,3 +143,32 @@ def sign_request_for(
     assert response.status_code == 201
     _ = logoff_user(client)
     return response
+
+
+# GP pysui
+
+
+def address_not_active(cfg: SuiConfig, or_in: list[str] = None) -> SuiAddress:
+    """Get first address that is not the active address."""
+    active = cfg.active_address
+    or_in = or_in if or_in else []
+    for other in cfg.addresses:
+        if other != active and other not in or_in:
+            return SuiAddress(other)
+    return None
+
+
+def gas_not_in(
+    client: SyncClient, for_addy: SuiAddress = None, not_in: list[str] = None
+) -> SuiCoinObject:
+    """Get gas object that is not in collection."""
+    for_addy = for_addy if for_addy else client.config.active_address
+    result = client.get_gas(for_addy)
+    not_in = not_in if not_in else []
+    if result.is_ok():
+        for agas in result.result_data.data:
+            if agas.coin_object_id not in not_in:
+                return agas
+    else:
+        print(result.result_string)
+    raise ValueError(result.result_string)

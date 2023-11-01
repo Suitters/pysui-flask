@@ -20,18 +20,25 @@ from flask.testing import FlaskClient
 from pysui_flask.api.xchange.payload import *
 from tests.integration.utils import (
     USER3_LOGIN_CREDS,
+    USER5_LOGIN_CREDS,
+    USER6_LOGIN_CREDS,
     PysuiAccount,
     account_data,
+    check_error_expect,
     login_user,
     logoff_user,
     sign_request_for,
     USER_LOGIN_CREDS,
     MSIG1_LOGIN_CREDS,
     MSIG2_LOGIN_CREDS,
+    gas_not_in,
+    address_not_active,
 )
 
 from pysui import SyncClient, SuiAddress
 from pysui.sui.sui_txn import SyncTransaction
+from pysui.sui.sui_txn.transaction_builder import PureInput
+from pysui.sui.sui_types.scalars import SuiU64
 import pysui.sui.sui_crypto as crypto
 
 
@@ -53,8 +60,8 @@ def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
     _ = logoff_user(client)
 
 
-def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
-    """Test deserializing and inspecting a SuiTransaction."""
+def test_template_owned(client: FlaskClient, sui_client: SyncClient):
+    """Test creating a transaction Template."""
     txer = SyncTransaction(sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
@@ -67,10 +74,8 @@ def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
             txer.serialize(include_sender_sponsor=False)
         ).decode(),
     }
-    _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.post(
-        "/account/pysui_new_template", json=json.dumps(template_dict)
-    )
+    _ = login_user(client, USER5_LOGIN_CREDS)
+    response = client.post("/account/template", json=json.dumps(template_dict))
     _ = logoff_user(client)
     assert response.status_code == 201
     assert "error" not in response.json
@@ -80,10 +85,10 @@ def test_pysui_tx_template(client: FlaskClient, sui_client: SyncClient):
     assert result["result"]["template_created"]["name"] == "Template 1"
 
 
-def test_pysui_tx_template_fetch(client: FlaskClient):
-    """Test deserializing and inspecting a SuiTransaction."""
-    _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.get("/account/pysui_txn_template/1", json=json.dumps({}))
+def test_template_fetch_owned(client: FlaskClient):
+    """Test retrieving a specific template."""
+    _ = login_user(client, USER5_LOGIN_CREDS)
+    response = client.get("/account/template/1", json=json.dumps({}))
     _ = logoff_user(client)
     assert response.status_code == 200
     assert "error" not in response.json
@@ -93,26 +98,138 @@ def test_pysui_tx_template_fetch(client: FlaskClient):
     assert result["result"]["template"]["template_name"] == "Template 1"
 
 
-def test_pysui_tx_templates_fetch(client: FlaskClient):
-    """Test deserializing and inspecting a SuiTransaction."""
-    _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.get("/account/pysui_txn_templates", json=json.dumps({}))
+def test_templates_fetch(client: FlaskClient):
+    """Test fetching all templates."""
+    _ = login_user(client, USER5_LOGIN_CREDS)
+    response = client.get("/account/templates", json=json.dumps({}))
     assert response.status_code == 200
     assert "error" not in response.json
     result = response.json
     _ = logoff_user(client)
 
 
-def test_pysui_tx_templates_submit(client: FlaskClient):
-    """Test deserializing and inspecting a SuiTransaction."""
-    _ = login_user(client, USER_LOGIN_CREDS)
+def test_template_owned_missing_req(client: FlaskClient):
+    """Fail template execution with missing required override."""
+    _ = login_user(client, USER5_LOGIN_CREDS)
     response = client.post(
-        "/account/pysui_txn_template", json=json.dumps({"tx_template_id": 1})
+        "/account/template/execute", json=json.dumps({"tx_template_id": 1})
     )
+    _ = logoff_user(client)
+    check_error_expect(response, -1011)
+
+
+def test_template_owned_invalid_override(client: FlaskClient):
+    """Fail template execution with unknown override."""
+    _ = login_user(client, USER5_LOGIN_CREDS)
+    response = client.post(
+        "/account/template/execute",
+        json=json.dumps(
+            {
+                "tx_template_id": 1,
+                "input_overrides": [
+                    {"input_index": 0, "input_value": "foo"},
+                    {"input_index": 7, "input_value": "bar"},
+                ],
+            }
+        ),
+    )
+    _ = logoff_user(client)
+    check_error_expect(response, -1010)
+
+
+def test_template_owned_execute(client: FlaskClient, sui_client: SyncClient):
+    """Pass template execution with valid pure required override."""
+    _ = login_user(client, USER5_LOGIN_CREDS)
+    response = client.post(
+        "/account/template/execute",
+        json=json.dumps(
+            {
+                "tx_template_id": 1,
+                "input_overrides": [
+                    {
+                        "input_index": 0,
+                        "input_value": PureInput.pure(SuiU64(2000000000)),
+                    },
+                ],
+            }
+        ),
+    )
+    _ = logoff_user(client)
     assert response.status_code == 201
     assert "error" not in response.json
     result = response.json
+    assert len(result["result"]["accounts_posted"]) == 1
     _ = logoff_user(client)
+    response = sign_request_for(client, sui_client, USER5_LOGIN_CREDS)
+
+
+def test_template_shared(client: FlaskClient, sui_client: SyncClient):
+    """Test creating a transaction Template."""
+    txer = SyncTransaction(sui_client)
+    primary_coin = gas_not_in(sui_client)
+    to_address = sui_client.config.active_address
+    scoin = txer.split_coin(coin=primary_coin, amounts=[1000000000])
+    txer.transfer_objects(transfers=[scoin], recipient=to_address)
+    # TODO: Add error check in backend for duplicate indexes
+    template_dict = {
+        "template_name": "Template 2",
+        "template_visibility": 2,
+        "template_version": "0.0.0",
+        "template_overrides": [
+            {"input_index": 0, "override_required": False},
+            {"input_index": 1, "override_required": True},
+            {"input_index": 2, "override_required": True},
+        ],
+        "template_builder": base64.b64encode(
+            txer.serialize(include_sender_sponsor=False)
+        ).decode(),
+    }
+    _ = login_user(client, USER5_LOGIN_CREDS)
+    response = client.post("/account/template", json=json.dumps(template_dict))
+    _ = logoff_user(client)
+    assert response.status_code == 201
+    assert "error" not in response.json
+    result = response.json
+    assert "template_created" in result["result"]
+    assert result["result"]["template_created"]["id"] == 2
+    assert result["result"]["template_created"]["name"] == "Template 2"
+
+
+def test_template_shared_execute(
+    client: FlaskClient, sui_client: SyncClient, accounts: dict
+):
+    """Pass template execution with valid pure required override."""
+    _ = login_user(client, USER6_LOGIN_CREDS)
+    # Get account address
+    udata = _user_data_by_name("FrankC06", accounts["users"])
+    addy6 = SuiAddress(udata["active_address"])
+    result = sui_client.get_gas(addy6)
+    assert result.is_ok()
+    primary_coin = result.result_data.data[0]
+    response = client.post(
+        "/account/template/execute",
+        json=json.dumps(
+            {
+                "tx_template_id": 2,
+                "input_overrides": [
+                    {
+                        "input_index": 1,
+                        "input_value": primary_coin.coin_object_id,
+                    },
+                    {
+                        "input_index": 2,
+                        "input_value": PureInput.pure(addy6),
+                    },
+                ],
+            }
+        ),
+    )
+    _ = logoff_user(client)
+    assert response.status_code == 201
+    assert "error" not in response.json
+    result = response.json
+    assert len(result["result"]["accounts_posted"]) == 1
+    response = sign_request_for(client, sui_client, USER6_LOGIN_CREDS)
 
 
 def test_pysui_tx_verification(client: FlaskClient, sui_client: SyncClient):

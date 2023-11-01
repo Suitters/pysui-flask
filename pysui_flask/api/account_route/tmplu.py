@@ -13,14 +13,79 @@
 
 """Template execution utilities module."""
 
+import base64
 from pysui_flask.api.xchange.payload import *
 from pysui_flask.db_tables import (
-    db,
     User,
     Template,
-    TemplateOverride,
     TemplateVisibility,
 )
+from pysui_flask.api_error import ErrorCodes, APIError
+import pysui_flask.api.common as cmn
+
+from pysui import ObjectID
+from pysui.sui.sui_txn import SyncTransaction
+from pysui.sui.sui_txn.transaction_builder import ProgrammableTransactionBuilder
+from pysui.sui.sui_types import bcs
+from pysui.sui.sui_txresults.single_tx import (
+    AddressOwner,
+    ImmutableOwner,
+    SharedOwner,
+    ObjectRead,
+)
+
+
+def _resolve_object(in_obj: ObjectRead, expected: str) -> bcs.CallArg:
+    """."""
+    if isinstance(in_obj.owner, (AddressOwner, ImmutableOwner)):
+        if expected not in ["ImmOrOwnedObject", "Receiving"]:
+            raise APIError(
+                f"Expected ImmOrOwnedObject or Receiving object type got {expected}",
+                ErrorCodes.PAYLOAD_ERROR,
+            )
+        obj_ref = bcs.GenericRef(in_obj.object_id, in_obj.version, in_obj.digest)
+        b_obj_arg = bcs.ObjectArg(
+            expected,
+            bcs.ObjectReference.from_generic_ref(obj_ref),
+        )
+    elif isinstance(in_obj.owner, SharedOwner):
+        if expected not in ["SharedObject"]:
+            raise APIError(
+                f"Expected SharedObject type got {expected}",
+                ErrorCodes.PAYLOAD_ERROR,
+            )
+        b_obj_arg = bcs.ObjectArg(
+            "SharedObject",
+            bcs.SharedObjectReference.from_object_read(in_obj),
+        )
+    return bcs.CallArg("Object", b_obj_arg)
+
+
+def _set_ovverides(txbytes: str, user: User, ovr: list[ExecuteTemplateOverride]) -> str:
+    """."""
+    client, usr = cmn.client_for_account("", user)
+    txer: SyncTransaction = cmn.deser_transaction(client, txbytes)
+    builder: ProgrammableTransactionBuilder = txer.builder
+    k_list = list(builder.inputs.keys())
+    for ovr_val in ovr:
+        karg = k_list[ovr_val.input_index]
+
+        match karg.enum_name:
+            case "Pure":
+                karg.value = ovr_val.input_value
+            case "Object":
+                carg = builder.inputs[karg]
+                result = client.get_object(ObjectID(ovr_val.input_value))
+                if result.is_err():
+                    raise APIError(result.result_string, ErrorCodes.PYSUI_ERROR_BASE)
+                # obj_carg = _resolve_object(result.result_data, carg.value.enum_name)
+                # builder.inputs[karg] = obj_carg
+                karg.value = bcs.Address.from_sui_address(
+                    SuiAddress(result.result_data.object_id)
+                )
+                builder.objects_registry.add(result.result_data.object_id)
+
+    return base64.b64encode(txer.serialize(False)).decode()
 
 
 def _resolve_ovverides(loadin: ExecuteTemplate, template: Template) -> TransactionIn:
@@ -34,18 +99,31 @@ def _resolve_ovverides(loadin: ExecuteTemplate, template: Template) -> Transacti
     :rtype: TransactionIn
     """
     txbytes: str = template.serialized_builder
-    # If input contains override declarations, otherwise just
-    # transpose to Transaction In
-    if loadin.input_overrides:
-        if template.template_overrides:
-            # Get the set of template overrides
-            # Get the set of input overrides
-            # Ensure the latter is subset of former
-            # Check the 'types' in the override are equal
-            pass
-        else:
-            # FIXME: Do we fail or just ignore?
-            pass
+
+    # Decl overrides
+    all_ovr: set = set([ovr.input_index for ovr in template.overrides])
+    # Required decl overrides
+    req_ovr: set = set(
+        [ovr.input_index for ovr in template.overrides if ovr.input_required]
+    )
+    # Input override
+    inp_ovr: set = set([x.input_index for x in loadin.input_overrides])
+    # If required but not provided
+    if req_ovr and not (req_ovr <= inp_ovr):
+        raise APIError(
+            f"Missing overrides for indexes {req_ovr - inp_ovr}",
+            ErrorCodes.PYSUI_TEMPLATE_MISSING_REQUIRED_OVERRIDES,
+        )
+    # If what is provided is not subset
+    if inp_ovr and not (inp_ovr <= all_ovr):
+        raise APIError(
+            f"Invalid input overrides {inp_ovr-all_ovr}",
+            ErrorCodes.PYSUI_TEMPLATE_INVALID_OVERRIDES,
+        )
+    # If you got em, smoke em
+    if inp_ovr:
+        txbytes = _set_ovverides(txbytes, template.user, loadin.input_overrides)
+
     return TransactionIn(
         txbytes, loadin.verify, loadin.gas_budget, loadin.gas_object, loadin.signers
     )

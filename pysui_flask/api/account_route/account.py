@@ -111,6 +111,7 @@ def new_template(account: User, payload: NewTemplate) -> Template:
     """Create and add template to user account."""
     template = Template()
     template.template_visibility = payload.template_visibility
+    template.template_version = payload.template_version
     template.template_name = payload.template_name
     template.serialized_builder = payload.template_builder
     if isinstance(payload.template_overrides, list):
@@ -207,7 +208,7 @@ def account_set_password():
     return {"changed": False, "reason": "locked"}, 200
 
 
-@account_api.post("/pysui_new_template")
+@account_api.post("/template")
 def account_create_template():
     """Submit a serialized SuiTransaction to use as template."""
     _user_login_required()
@@ -241,7 +242,7 @@ def account_create_template():
         raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
 
 
-@account_api.get("/pysui_txn_template/<int:template_id>")
+@account_api.get("/template/<int:template_id>")
 def account_get_template(template_id: int):
     """Fetch a template by it's ID."""
     _user_login_required()
@@ -259,7 +260,7 @@ def account_get_template(template_id: int):
 
 
 # TODO: Add paging constructs
-@account_api.get("/pysui_txn_templates")
+@account_api.get("/templates")
 def account_get_templates():
     """Fetch multiple templates, payload adds fitering."""
     _user_login_required()
@@ -300,6 +301,9 @@ def _submit_transaction(account_key: str, payload: TransactionIn):
     client, _user = cmn.client_for_account(account_key)
 
     txer: SyncTransaction = cmn.deser_transaction(client, payload.tx_builder)
+    print("FOR EXECUTION")
+    print(txer.raw_kind().to_json(indent=2))
+
     try:
         # Setup sender
         txer.signer_block.sender = cmn.construct_sender(sig_req)
@@ -330,7 +334,7 @@ def _submit_transaction(account_key: str, payload: TransactionIn):
 
 
 @account_api.post("/pysui_txn")
-def account_submit_transaction():
+def account_execute_transaction():
     """Deserialize and execute builder construct."""
     _user_login_required()
     try:
@@ -340,8 +344,8 @@ def account_submit_transaction():
     return _submit_transaction(session["user_key"], payload)
 
 
-@account_api.post("/pysui_txn_template")
-def account_submit_template_transaction():
+@account_api.post("/template/execute")
+def account_execute_template_transaction():
     """Deserialize and execute template builder construct."""
     _user_login_required()
     try:
@@ -352,13 +356,14 @@ def account_submit_template_transaction():
         tx_in: TransactionIn = template_payload_to_tx(
             session["user_key"], payload, template
         )
-
-        return {"accounts_posted": ["1"]}, 201
         # user: User = User.query.filter(User.account_key == session["user_key"]).first()
         # Resolve inputs if any
         # payload: TransactionIn = cmn.reconcile_template(user,template,payload)
+    except APIError as axc:
+        raise axc
     except Exception as exc:
         raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
+    return _submit_transaction(session["user_key"], tx_in)
 
 
 def _requested_filtered(

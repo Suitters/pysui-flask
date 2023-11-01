@@ -150,6 +150,10 @@ class Template(db.Model):
     # Name for template
     template_name: str = db.Column(db.String(64), nullable=False)
 
+    # Version
+
+    template_version: str = db.Column(db.String(16), nullable=False)
+
     # visibility
     template_visibility: int = db.Column(
         db.Enum(TemplateVisibility), nullable=False, default=TemplateVisibility.owned

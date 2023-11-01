@@ -65,3 +65,8 @@ Theory of Operations
 #. Signing requests are queued to indivual accounts
 #. Signing may be accepted (response includes signature of transaction bytes) or denied
 #. When all signatures satisfied, submits transaction for execution
+#. Define a Template which can be reused with no or optional input overrides
+#. Templates can define overrides of input arguments, can also indicate an override is required
+#. Templates visibility can be 'owned', only the template creator can execute
+#. Templates visibility can be 'shared', any a account can use and override
+#. Template execution substitutes overridden inputs and then 'submits' it as a transaction

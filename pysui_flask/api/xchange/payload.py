@@ -43,7 +43,7 @@ def _public_key_for_base64(*, wallet_key: str, key_scheme: str) -> tuple[str, st
                 base64.b64encode(ba).decode(),
                 SuiAddress.from_bytes(ba).address,
             )
-    elif key_scheme == "SECP256K1" or key_scheme == "SECP256R1":
+    elif key_scheme == "SECP256K1":
         if len(pub_key_bytes) == 33:
             ba = bytearray([1])
             ba.extend(pub_key_bytes)
@@ -428,20 +428,7 @@ class ExecuteTemplateOverride:
     """Template execution overrides."""
 
     input_index: int
-    input_value: Any
-    input_type: Optional[str] = None
-
-    def __post_init__(self):
-        """Override validate."""
-        if self.input_type and self.input_type not in [
-            "pure",
-            "object",
-            "shared_object",
-            "receiving_object",
-        ]:
-            raise ValueError(
-                f"Template override input_type '{self.input_type}' invalid."
-            )
+    input_value: Union[str, list]
 
 
 @dataclass_json
