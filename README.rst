@@ -83,7 +83,7 @@ Transactions
 Submitting Transactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Endpoint** `/account//pysui_txn`
+**Endpoint POST** `/account/pysui_txn`
 
 Transactions can be submitted by any Account. The transaction payload fields
 
@@ -104,8 +104,35 @@ Transactions can be submitted by any Account. The transaction payload fields
     # Accounts to notify for signing, defaults to account submitting transaction
     signers: Optional[Signers] = None
 
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Query Signing Requests
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Endpoint GET** `/account/signing_requests`
+
 When submitted, default signer (submitter) or those indicated in `signers` get a signing request queued to their account.
-Accounts can query for any outstanding signature requests
+Accounts can query for any outstanding signature requests, return payload is array of 0 or more requests
+
+.. code-block::
+
+    # Unique request identifier
+    id: int
+
+    # Public key of account to sign
+    signer_public_key: str
+
+    # Are they asked to sign as sender (1) or sponsor (2)
+    signing_as: int
+
+    # Base64 transaction bytes to sign
+    tx_bytes: str
+
+    # Status of request. May be one of:
+    # 1 - pending signature
+    # 2 - previously signed
+    # 3 - previously denied
+    status: int
+
 
 
 
