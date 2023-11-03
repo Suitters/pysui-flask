@@ -111,6 +111,9 @@ Query Signing Requests
 **Endpoint GET** `/account/signing_requests`
 
 When submitted, default signer (submitter) or those indicated in `signers` get a signing request queued to their account.
+If there is explicit `signers`, a request is posted to each individual signer. This may include both a `sender` signer and
+`sponor` signer. Either of which could be a MultiSignature (see below).
+
 Accounts can query for any outstanding signature requests, return payload is array of 0 or more requests
 
 .. code-block::
@@ -141,7 +144,7 @@ Signing Transactions
 
 Receiver signs the tx_bytes in request and submits back
 
-Sign (approved) payload
+Request accepted outcome payload
 
 .. code-block::
 
@@ -160,6 +163,21 @@ Sign (approved) payload
         # Signed bytes as base64 string
 
         signature: str
+        }
+
+Request rejected outcome payload
+
+.. code-block::
+
+    # Unique request identifier
+    request_id: int
+
+    # Accepted and signed
+    rejected_outcome: {
+
+        # Small description of why rejected
+        cause: str
+
         }
 
 
