@@ -118,7 +118,7 @@ Accounts can query for any outstanding signature requests, return payload is arr
     # Unique request identifier
     id: int
 
-    # Public key of account to sign
+    # Sui public key string of account to sign
     signer_public_key: str
 
     # Are they asked to sign as sender (1) or sponsor (2)
@@ -133,7 +133,34 @@ Accounts can query for any outstanding signature requests, return payload is arr
     # 3 - previously denied
     status: int
 
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Signing Transactions
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+**Endpoint POST** `/account/signing_requests`
+
+Receiver signs the tx_bytes in request and submits back
+
+Sign (approved) payload
+
+.. code-block::
+
+    # Unique request identifier
+    request_id: int
+
+    # Accepted and signed
+    accepted_outcome: {
+
+        # Sui public key string of signer
+        public_key: str
+
+        # Sui address
+        active_address: str
+
+        # Signed bytes as base64 string
+
+        signature: str
+        }
 
 
 --------------------------
