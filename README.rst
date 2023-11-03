@@ -79,20 +79,34 @@ Theory of Operations
 Transactions
 --------------------------
 
-Transactions can be sent by any Account. The transaction payload fields
+""""""""""""""""""""""""""
+Submitting Transactions
+""""""""""""""""""""""""""
+
+**Endpoint** `/account//pysui_txn`
+
+Transactions can be submitted by any Account. The transaction payload fields
 
 .. code-block::
 
     # Serialized pysui SuiTransaction base64 string
     tx_builder: str
+
     # Flag to verify transaction against Sui ProtocolConfig constraints
     verify: Optional[bool] = None
+
     # Explicit gas budget option
     gas_budget: Optional[str] = None
+
     # Explicit gas object option (gas comes from sponsor if indicated)
     gas_object: Optional[str] = None
+
     # Accounts to notify for signing, defaults to account submitting transaction
     signers: Optional[Signers] = None
+
+When submitted, default signer (submitter) or those indicated in `signers` get a signing request queued to their account.
+Accounts can query for any outstanding signature requests
+
 
 
 --------------------------
