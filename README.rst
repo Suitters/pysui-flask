@@ -79,9 +79,9 @@ Theory of Operations
 Transactions
 --------------------------
 
-""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 Submitting Transactions
-""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Endpoint** `/account//pysui_txn`
 
