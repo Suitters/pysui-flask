@@ -11,7 +11,8 @@ Introduction
 
 **ALPHA ALPHA ALPHA** - Use tenderly, it's fragile!
 
-While pysui-flask exposes *some* pysui SDK via RESTful API, the main features are MultiSignature management and transaction processing
+While pysui-flask exposes *some* pysui SDK via RESTful API, the main features are
+MultiSignature management, transaction and signing processing, and transaction Templates.
 
 ====================
 Key Dependencies
@@ -57,16 +58,47 @@ Running
 Theory of Operations
 ====================
 
-#. Chain data can be queries by anyone (read operations)
-#. Accounts (user accounts) particpating in transactions must be provisioned by admin
-#. MultiSignature configurations are provisioned by admin
-#. Transactions submitted incllude sender and optionally sponser
-#. Sender and sponsor can be single or multisig
+#. No private keys are required
+#. Chain data can be queried by anyone (read operations)
+#. Accounts can participate in transactions
+#. Accounts must be provisioned into pysui-flask by admin
+#. Accounts log in to create/submit transactions
+#. MultiSignature configurations must be provisioned into pysui-flask by admin
+#. Transactions submitted include sender and, optionally, sponser
+#. Sender and sponsor may be single or multisig
 #. Signing requests are queued to indivual accounts
 #. Signing may be accepted (response includes signature of transaction bytes) or denied
 #. When all signatures satisfied, submits transaction for execution
-#. Define a Template which can be reused with no or optional input overrides
+#. Define Templates which can be reused with zero or more optional input overrides
 #. Templates can define overrides of input arguments, can also indicate an override is required
-#. Templates visibility can be 'owned', only the template creator can execute
-#. Templates visibility can be 'shared', any a account can use and override
-#. Template execution substitutes overridden inputs and then 'submits' it as a transaction
+#. Templates visibility can be 'owned' or 'shared'
+#. Template execution substitutes overridden inputs and 'submits' as a transaction
+
+
+--------------------------
+Transactions
+--------------------------
+
+Transactions can be sent by any Account. The transaction payload fields
+
+.. code-block::
+
+    # Serialized pysui SuiTransaction base64 string
+    tx_builder: str
+    # Flag to verify transaction against Sui ProtocolConfig constraints
+    verify: Optional[bool] = None
+    # Explicit gas budget option
+    gas_budget: Optional[str] = None
+    # Explicit gas object option (gas comes from sponsor if indicated)
+    gas_object: Optional[str] = None
+    # Accounts to notify for signing, defaults to account submitting transaction
+    signers: Optional[Signers] = None
+
+
+--------------------------
+MultiSignature
+--------------------------
+
+--------------------------
+Templates
+--------------------------
