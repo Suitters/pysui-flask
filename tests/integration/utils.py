@@ -112,7 +112,7 @@ def sign_request_for(
     acc_data: PysuiAccount = account_data(client)
     rfilt = SignRequestFilter(pending=True)
     response = client.get(
-        "/account/signing_requests",
+        "/account/signing-requests",
         json=rfilt.to_json(),
     )
     assert response.status_code == 200
@@ -135,7 +135,7 @@ def sign_request_for(
         ),
     )
     response = client.post(
-        "/account/signing_request",
+        "/account/signing-request",
         json=payload.to_json(),
     )
     if response.status_code != 201:

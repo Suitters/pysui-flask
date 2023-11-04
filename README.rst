@@ -83,7 +83,7 @@ Transactions
 Submitting Transactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Endpoint POST** `/account/pysui_txn`
+**Endpoint POST** `/account/transaction/execute`
 
 Transactions can be submitted by any Account. The transaction payload fields
 
@@ -108,7 +108,7 @@ Transactions can be submitted by any Account. The transaction payload fields
 Query Signing Requests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Endpoint GET** `/account/signing_requests`
+**Endpoint GET** `/account/signing-requests`
 
 When submitted, default signer (submitter) or those indicated in `signers` get a signing request queued to their account.
 If there is explicit `signers`, a request is posted to each individual signer. This may include both a `sender` signer and
@@ -140,7 +140,7 @@ Accounts can query for any outstanding signature requests, return payload is arr
 Signing Transactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Endpoint POST** `/account/signing_requests`
+**Endpoint POST** `/account/signing-requests`
 
 Receiver signs the tx_bytes in request and submits back
 

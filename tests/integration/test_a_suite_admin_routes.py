@@ -183,7 +183,7 @@ def test_admin_create_msig(client: FlaskClient, sui_client: SyncClient):
         "requires_attestation": False,
     }
 
-    response = client.post("/admin/multi_sig_account", json=json.dumps(msig_payload))
+    response = client.post("/admin/multisig", json=json.dumps(msig_payload))
     print(msig_payload)
 
 

@@ -53,7 +53,9 @@ def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
         ).decode()
     }
     _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.get("/account/pysui_txn", json=json.dumps(inspect_dict))
+    response = client.get(
+        "/account/transaction/validate", json=json.dumps(inspect_dict)
+    )
     assert response.status_code == 200
     assert "error" not in response.json
     result = response.json
@@ -244,7 +246,9 @@ def test_pysui_tx_verification(client: FlaskClient, sui_client: SyncClient):
         "perform": "verification",
     }
     _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.get("/account/pysui_txn", json=json.dumps(inspect_dict))
+    response = client.get(
+        "/account/transaction/validate", json=json.dumps(inspect_dict)
+    )
     assert response.status_code == 200
     assert "error" not in response.json
     result = response.json
@@ -257,7 +261,7 @@ def test_no_signing_requests(client: FlaskClient):
     """Should be empty."""
     _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
-        "/account/signing_requests",
+        "/account/signing-requests",
         json=json.dumps({}),
     )
     assert response.status_code == 200
@@ -270,7 +274,7 @@ def test_no_transactions(client: FlaskClient):
     """Should be empty."""
     _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
-        "/account/pysui_get_txn",
+        "/account/transaction",
         json=json.dumps({}),
     )
     assert response.status_code == 200
@@ -290,7 +294,7 @@ def test_pysui_tx_execute(client: FlaskClient, sui_client: SyncClient):
         ).decode()
     )
     _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.post("/account/pysui_txn", json=txin.to_json())
+    response = client.post("/account/transaction/execute", json=txin.to_json())
     assert response.status_code == 201
     assert "error" not in response.json
     result = response.json
@@ -303,7 +307,7 @@ def test_transactions(client: FlaskClient):
     """Test transaction was executed."""
     _ = login_user(client, USER_LOGIN_CREDS)
     response = client.get(
-        "/account/pysui_get_txn",
+        "/account/transaction",
         json=json.dumps({}),
     )
     assert response.status_code == 200
@@ -325,7 +329,7 @@ def test_pysui_tx_execute_deny_sig(client: FlaskClient, sui_client: SyncClient):
     )
     # Post the transaction
     _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.post("/account/pysui_txn", json=txin.to_json())
+    response = client.post("/account/transaction/execute", json=txin.to_json())
     assert response.status_code == 201
     assert "error" not in response.json
     result = response.json
@@ -333,7 +337,7 @@ def test_pysui_tx_execute_deny_sig(client: FlaskClient, sui_client: SyncClient):
     # Get pending sig
     rfilt = SignRequestFilter(pending=True)
     response = client.get(
-        "/account/signing_requests",
+        "/account/signing-requests",
         json=rfilt.to_json(),
     )
     assert response.status_code == 200
@@ -355,7 +359,7 @@ def test_pysui_tx_execute_deny_sig(client: FlaskClient, sui_client: SyncClient):
         ),
     )
     response = client.post(
-        "/account/signing_request",
+        "/account/signing-request",
         json=payload.to_json(),
     )
     assert response.status_code == 201
@@ -418,12 +422,12 @@ def test_pysui_tx_with_msig(
         ).decode()
     )
     # Post the transaction
-    response = client.post("/account/pysui_txn", json=txin.to_json())
+    response = client.post("/account/transaction/execute", json=txin.to_json())
 
     # Sign the transfer
     rfilt = SignRequestFilter(pending=True)
     response = client.get(
-        "/account/signing_requests",
+        "/account/signing-requests",
         json=rfilt.to_json(),
     )
     assert response.status_code == 200
@@ -443,7 +447,7 @@ def test_pysui_tx_with_msig(
         ),
     )
     response = client.post(
-        "/account/signing_request",
+        "/account/signing-request",
         json=payload.to_json(),
     )
     assert response.status_code == 201
@@ -475,7 +479,7 @@ def test_pysui_tx_with_msig(
     )
     # Post the transaction
     _ = login_user(client, USER_LOGIN_CREDS)
-    response = client.post("/account/pysui_txn", json=txin.to_json())
+    response = client.post("/account/transaction/execute", json=txin.to_json())
     assert response.status_code == 201
     assert "error" not in response.json
     _ = logoff_user(client)
@@ -487,7 +491,7 @@ def test_pysui_tx_with_msig(
     assert result["result"]["signature_response"] == "signed_and_executed"
     _ = login_user(client, MSIG2_LOGIN_CREDS)
     response = client.get(
-        "/account/pysui_get_txn",
+        "/account/transaction",
         json=json.dumps({}),
     )
     assert response.status_code == 200
@@ -524,7 +528,7 @@ def test_pysui_tx_sponsor(client: FlaskClient, sui_client: SyncClient, accounts:
     )
     # Post the transaction
     _ = login_user(client, MSIG1_LOGIN_CREDS)
-    response = client.post("/account/pysui_txn", json=txin.to_json())
+    response = client.post("/account/transaction/execute", json=txin.to_json())
     _ = logoff_user(client)
     response = sign_request_for(client, sui_client, MSIG1_LOGIN_CREDS)
     assert response.status_code == 201
@@ -574,7 +578,7 @@ def test_pysui_tx_msig_sponsor(
     )
     # Post the transaction
     _ = login_user(client, USER3_LOGIN_CREDS)
-    response = client.post("/account/pysui_txn", json=txin.to_json())
+    response = client.post("/account/transaction/execute", json=txin.to_json())
     _ = logoff_user(client)
     response = sign_request_for(client, sui_client, USER3_LOGIN_CREDS)
     assert response.status_code == 201

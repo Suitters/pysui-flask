@@ -245,7 +245,7 @@ def new_user_account():
     }, 201
 
 
-@admin_api.post("/multi_sig_account")
+@admin_api.post("/multisig")
 def new_multi_sig_account():
     """Admin registration of new msig account."""
     admin_login_required()

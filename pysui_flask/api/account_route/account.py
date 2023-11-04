@@ -267,7 +267,7 @@ def account_get_templates():
     return {"data": []}, 200
 
 
-@account_api.get("/pysui_txn")
+@account_api.get("/transaction/validate")
 def account_inspect_or_validate_transaction():
     """Deserialize and inspect or validate transaction construct."""
     _user_login_required()
@@ -333,7 +333,7 @@ def _submit_transaction(account_key: str, payload: TransactionIn):
         raise APIError(f"Exception {exc.args[0]}", ErrorCodes.CONTENT_TYPE_ERROR)
 
 
-@account_api.post("/pysui_txn")
+@account_api.post("/transaction/execute")
 def account_execute_transaction():
     """Deserialize and execute builder construct."""
     _user_login_required()
@@ -402,7 +402,7 @@ def _requested_filtered(
     ).all()
 
 
-@account_api.get("/signing_requests")
+@account_api.get("/signing-requests")
 def get_signing_requests():
     """."""
     _user_login_required()
@@ -423,7 +423,7 @@ def get_signing_requests():
     return {"signing_requests": json.loads(json.dumps(requests_enhanced))}, 200
 
 
-@account_api.post("/signing_request")
+@account_api.post("/signing-request")
 def set_signing_requests():
     """."""
     _user_login_required()
@@ -437,7 +437,7 @@ def set_signing_requests():
         raise APIError(f"{exc.args[0],ErrorCodes.PAYLOAD_ERROR}")
 
 
-@account_api.get("/pysui_get_txn")
+@account_api.get("/transaction")
 def get_transaction_results():
     """Get transactions the account is in context of."""
     _user_login_required()
@@ -467,7 +467,7 @@ def get_transaction_results():
     return {"transactions": json.loads(json.dumps(tx_result))}, 200
 
 
-@account_api.get("/multisig_requests")
+@account_api.get("/multisig-requests")
 def get_multisig_membership_requests():
     """."""
     _user_login_required()
