@@ -99,7 +99,7 @@ Instead:
 #. The accounts for required signatures of the transaction get a queued signing request record.
 #. Accounts then fetch pending signature requests.
 #. Accounts can then either sign and approve or reject the request.
-#. Once all required signatures are returned approved, the transaction submitted to Sui for execution.
+#. Once all required signatures are returned approved, the transaction is submitted to Sui for execution.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Submit Transaction for Execution
@@ -142,8 +142,10 @@ transaction `sender`. Signer payload
     # Can be multi-sig, single active-address or None (default to requestor)
     sponsor: Optional[Union[MultiSig, str]] = None
 
-If either sender or sponsor are strings, it is the Sui address string,
-A MultiSig signer payload requires the MultiSig provisioned Sui address and the subset of the provisioned MultiSig members
+If either sender or sponsor are strings, it is the Sui address string of the user Account.
+
+A MultiSig signer payload requires the MultiSig provisioned Sui address and the subset of the provisioned
+MultiSig members Sui addresses
 
 .. code-block::
 
@@ -250,15 +252,67 @@ Endpoint: **/admin/login** - Post with admin user name and password payload, est
 
 Endpoint: **/admin/logoff** - Post. Ends session.
 
-The admin uername and password are part of the instance configuration.
+The admin uername and password are part of the `pysui-flask` configuration.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Provision user Account
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Endpoint: **/admin/account** - Post (provision) a new user Account
+Endpoint: **/admin/accounts** - Post (provision) a list of new user Account
+
+User Accounts are required to perform transaction operations and/or participate in signing.
+
+.. code-block::
+
+    # Account user name string
+    username: str
+
+    # Account user password string, this is hashed before persisting
+    password: str
+
+    # The Accounts Sui public key base64 string or wallet paylod
+    public_key: Union[str, dict]
+
+If you are geneating an account from a wallet then the wallet payload (dict)
+
+.. code-block::
+
+    # The Sui key scheme for the public key
+    key_scheme: str     # One of ED25519, SECP256K1, SECP256R1
+
+    # The hex string of the public key from wallet.
+    wallet_key: str
+
+
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Provision MultiSig
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Endpoint: **/admin/multisig** - Post (provision) a new MultiSig
+
+The members of the MultiSig payload must be existing user Accounts
+
+.. code-block::
+
+    # A list of members of the MultiSig
+    members: list[dict]
+
+    # A name to assign the MultiSig
+    name: str
+
+    # The signing threshold (sum of weights of members when signing)
+    threshold:int
+
+The individual MultiSig members payload
+
+.. code-block::
+
+    # The members Sui address
+    account_key:str
+
+    # The weight the signature of this member contributes to the threshold (max val 255)
+    weight: int
 
 
 --------------------------
