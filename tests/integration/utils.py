@@ -135,7 +135,7 @@ def sign_request_for(
         ),
     )
     response = client.post(
-        "/account/signing-request",
+        "/account/sign",
         json=payload.to_json(),
     )
     if response.status_code != 201:

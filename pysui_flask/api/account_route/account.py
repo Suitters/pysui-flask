@@ -423,7 +423,7 @@ def get_signing_requests():
     return {"signing_requests": json.loads(json.dumps(requests_enhanced))}, 200
 
 
-@account_api.post("/signing-request")
+@account_api.post("/sign")
 def set_signing_requests():
     """."""
     _user_login_required()

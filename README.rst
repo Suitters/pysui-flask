@@ -140,7 +140,7 @@ Accounts can query for any outstanding signature requests, return payload is arr
 Signing Transactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Endpoint POST** `/account/signing-requests`
+**Endpoint POST** `/account/sign`
 
 Receiver signs the tx_bytes in request and submits back
 

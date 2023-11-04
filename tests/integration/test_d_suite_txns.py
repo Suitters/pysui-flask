@@ -359,7 +359,7 @@ def test_pysui_tx_execute_deny_sig(client: FlaskClient, sui_client: SyncClient):
         ),
     )
     response = client.post(
-        "/account/signing-request",
+        "/account/sign",
         json=payload.to_json(),
     )
     assert response.status_code == 201
@@ -447,7 +447,7 @@ def test_pysui_tx_with_msig(
         ),
     )
     response = client.post(
-        "/account/signing-request",
+        "/account/sign",
         json=payload.to_json(),
     )
     assert response.status_code == 201
