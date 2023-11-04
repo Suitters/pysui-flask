@@ -310,7 +310,7 @@ The individual MultiSig members payload
 Templates
 --------------------------
 
-User Accuonts and create and execute reusable SuiTransaction called Templates.
+User Accuonts can create and execute reusable SuiTransaction called Templates.
 
 A Template is a serialized SuiTransaction that can shared or private and cen control which
 inputs may be overridden when executed.
@@ -382,10 +382,12 @@ input value type
 .. code-block::
 
     # The zero based input index that is being overridden
+    # The execution will fail if the template did not indicate this input as overrideable
     input_index: int
 
     # The override value. If string it is assumed to be a 'object' and the value
     # is the Sui Object ID that expands to object reference.
+    #
     # Otherwise if list of bytes it is assumed to be a 'pure' value
     input_value: Union[str, list]
 
