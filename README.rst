@@ -235,14 +235,6 @@ Rejecting payload
 
 
 --------------------------
-MultiSignature
---------------------------
-
---------------------------
-Templates
---------------------------
-
---------------------------
 Administration
 --------------------------
 
@@ -313,6 +305,89 @@ The individual MultiSig members payload
 
     # The weight the signature of this member contributes to the threshold (max val 255)
     weight: int
+
+--------------------------
+Templates
+--------------------------
+
+User Accuonts and create and execute reusable SuiTransaction called Templates.
+
+A Template is a serialized SuiTransaction that can shared or private and cen control which
+inputs may be overridden when executed.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Create Template
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Endpoint: **/account/template** - Post (create) a new Template
+
+New Template payload
+
+.. code-block::
+
+    # Name of the template
+    template_name: str
+
+    # Version of the template
+    template_version: str
+
+    # Base64 serialized SuiTransaction
+    template_builder: str
+
+    # Owned "1" or Shared "2"
+    template_visibility: str
+
+    # List of overrides or string ("all", "none")
+    template_overrides: Union[list[dict], str]
+
+Template override payload
+
+.. code-block::
+
+    # The zero based input index that can be overridden
+    input_index: int
+
+    # Flag indicating that input override must (True) be done in order to execute or not (False)
+    override_required: bool
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Submit Template for execution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Endpoint: **/account/template/execute** - Post a Template as a Transaction
+
+.. code-block::
+
+    # Unique Template ID
+    tx_template_id: int
+
+    # Input overrides. If none given, template is executed as created
+    input_overrides: Optional[list[dict]]
+
+    # Same as Submit Transaction for Execution
+    verify: Optional[bool] = None
+
+    # Same as Submit Transaction for Execution
+    gas_budget: Optional[str] = None
+
+    # Same as Submit Transaction for Execution
+    gas_object: Optional[str] = None
+
+    # Same as Submit Transaction for Execution
+    signers: Optional[Signers] = None
+
+Template execution overrides. Override values **must be** of type defined in the templates
+input value type
+
+.. code-block::
+
+    # The zero based input index that is being overridden
+    input_index: int
+
+    # The override value. If string it is assumed to be a 'object' and the value
+    # is the Sui Object ID that expands to object reference.
+    # Otherwise if list of bytes it is assumed to be a 'pure' value
+    input_value: Union[str, list]
 
 
 --------------------------
