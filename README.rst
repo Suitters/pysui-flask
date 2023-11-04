@@ -82,12 +82,11 @@ Accounts
 Only administrators of the pysui-flask setup can provision new accounts. Once provision can
 login or logoff, change passwords, submit transactions and sign or deny signing a transaction.
 
-**Endpoint POST** `/account/login` - With user name and password, establishes session
+Endpoint: **/account/login** - Post with user name and password payload, establishes session
 
-**Endpoint POST** `/account/logoff` - Ends session
+Endpoint: **/account/logoff** - Post. Ends session.
 
-**Endpoint POST** `/account/password` - Changes the account password
-
+Endpoint: **/account/password** - Post with new password payload.
 
 
 --------------------------
