@@ -83,8 +83,11 @@ Only administrators of the pysui-flask setup can provision new accounts. Once pr
 login or logoff, change passwords, submit transactions and sign or deny signing a transaction.
 
 **Endpoint POST** `/account/login` - With user name and password, establishes session
+
 **Endpoint POST** `/account/logoff` - Ends session
+
 **Endpoint POST** `/account/password` - Changes the account password
+
 
 
 --------------------------
@@ -97,8 +100,7 @@ Instead:
 #. The accounts for required signatures of the transaction get a queued signing request record.
 #. Accounts then fetch pending signature requests.
 #. Accounts can then either sign and approve or reject the request.
-#. Once all required signatures are returned approved, the transaction is then submitted to the Sui blockchain
-and executed.
+#. Once all required signatures are returned approved, the transaction submitted to Sui for execution.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Submit Transaction for Execution
