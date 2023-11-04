@@ -79,7 +79,7 @@ Theory of Operations
 Accounts
 --------------------------
 
-Only administrators of the pysui-flask setup can provision new accounts. Once provision can
+Only administrators of the pysui-flask setup can provision new accounts. Once account provisioned, user can
 login or logoff, change passwords, submit transactions and sign or deny signing a transaction.
 
 Endpoint: **/account/login** - Post with user name and password payload, establishes session
@@ -105,9 +105,9 @@ Instead:
 Submit Transaction for Execution
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Endpoint POST** `/account/transaction/execute`
+Endpoint: **/account/transaction/execute** - Post serialized base64 SuiTransaction
 
-Transactions can be submitted by any Account. The transaction payload fields
+Transactions can be submitted (requestor) by any Account. The transaction payload fields
 
 .. code-block::
 
@@ -127,12 +127,41 @@ Transactions can be submitted by any Account. The transaction payload fields
     signers: Optional[Signers] = None
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+Signers
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+At a maximum 2 Signers, in the execution payload (transaction or template), can be specified: Sender and Sponsor.
+Either can reference a single user Account or a MultiSig. If not provided, the requestor is considered to be the
+transaction `sender`. Signer payload
+
+.. code-block::
+
+    # Can be multi-sig, single active-address or None (default to requestor)
+    sender: Optional[Union[MultiSig, str]] = None
+
+    # Can be multi-sig, single active-address or None (default to requestor)
+    sponsor: Optional[Union[MultiSig, str]] = None
+
+If either sender or sponsor are strings, it is the Sui address string,
+A MultiSig signer payload requires the MultiSig provisioned Sui address and the subset of the provisioned MultiSig members
+
+.. code-block::
+
+    # This is the active-address of the provision MultiSig
+    msig_account: str
+
+    # Optionally these are active_addresses for the MultiSig members who are
+    # required to sign. If None, all members must sign
+    msig_signers: Optional[list[str]] = None
+
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 Query Signing Requests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Endpoint GET** `/account/signing-requests`
+Endpoint: **/account/signing-requests** - Get signing requests for account.
 
-When submitted, default signer (submitter) or those indicated in `signers` get a signing request queued to their account.
+When submitted, default signer (account submitter) or those indicated in `signers` get a signing request queued to their account.
 If there is explicit `signers`, a request is posted to each individual signer. This may include both a `sender` signer and
 `sponor` signer. Either of which could be a MultiSignature (see below).
 
@@ -149,7 +178,7 @@ Accounts can query for any outstanding signature requests, return payload is arr
     # Are they asked to sign as sender (1) or sponsor (2)
     signing_as: int
 
-    # Base64 transaction bytes to sign
+    # Base64 serialized SuiTransaction to sign
     tx_bytes: str
 
     # Status of request. May be one of:
@@ -162,9 +191,9 @@ Accounts can query for any outstanding signature requests, return payload is arr
 Sign or Reject
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Endpoint POST** `/account/sign`
+Endpoint: **/account/sign** - Post a signed transaction or deny the signature.
 
-Receiver signs the tx_bytes in request and submits back
+Receiver signs the SuiTransaction serialized base64 tx_bytes in request and submits back
 
 Signing payload
 
@@ -209,4 +238,29 @@ MultiSignature
 
 --------------------------
 Templates
+--------------------------
+
+--------------------------
+Administration
+--------------------------
+
+Administrators provision new Accounts and MultiSigs.
+
+Endpoint: **/admin/login** - Post with admin user name and password payload, establishes session
+
+Endpoint: **/admin/logoff** - Post. Ends session.
+
+The admin uername and password are part of the instance configuration.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Provision user Account
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Provision MultiSig
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+--------------------------
+Configuration
 --------------------------
