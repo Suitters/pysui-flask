@@ -76,12 +76,33 @@ Theory of Operations
 
 
 --------------------------
+Accounts
+--------------------------
+
+Only administrators of the pysui-flask setup can provision new accounts. Once provision can
+login or logoff, change passwords, submit transactions and sign or deny signing a transaction.
+
+**Endpoint POST** `/account/login` - With user name and password, establishes session
+**Endpoint POST** `/account/logoff` - Ends session
+**Endpoint POST** `/account/password` - Changes the account password
+
+
+--------------------------
 Transactions
 --------------------------
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-Submitting Transactions
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+When a transaction is posted for execution to pysui-flask it does not execute immediatley.
+Instead:
+
+#. The accounts for required signatures of the transaction get a queued signing request record.
+#. Accounts then fetch pending signature requests.
+#. Accounts can then either sign and approve or reject the request.
+#. Once all required signatures are returned approved, the transaction is then submitted to the Sui blockchain
+and executed.
+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Submit Transaction for Execution
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Endpoint POST** `/account/transaction/execute`
 
@@ -137,14 +158,14 @@ Accounts can query for any outstanding signature requests, return payload is arr
     status: int
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-Signing Transactions
+Sign or Reject
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Endpoint POST** `/account/sign`
 
 Receiver signs the tx_bytes in request and submits back
 
-Request accepted outcome payload
+Signing payload
 
 .. code-block::
 
@@ -165,7 +186,7 @@ Request accepted outcome payload
         signature: str
         }
 
-Request rejected outcome payload
+Rejecting payload
 
 .. code-block::
 
