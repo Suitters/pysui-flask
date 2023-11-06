@@ -74,16 +74,25 @@ def _set_ovverides(txbytes: str, user: User, ovr: list[ExecuteTemplateOverride])
             case "Pure":
                 karg.value = ovr_val.input_value
             case "Object":
-                carg = builder.inputs[karg]
+                carg: bcs.CallArg = builder.inputs[karg]
+
                 result = client.get_object(ObjectID(ovr_val.input_value))
                 if result.is_err():
                     raise APIError(result.result_string, ErrorCodes.PYSUI_ERROR_BASE)
                 # obj_carg = _resolve_object(result.result_data, carg.value.enum_name)
                 # builder.inputs[karg] = obj_carg
+                # Preserve old object id
+                old_addy = karg.value.to_address_str()
+                # Replace with new object id
                 karg.value = bcs.Address.from_sui_address(
                     SuiAddress(result.result_data.object_id)
                 )
-                builder.objects_registry.add(result.result_data.object_id)
+                # Pop old object id from registry
+                old_entry = builder.objects_registry.pop(old_addy)
+                # Create new registry entry
+                builder.objects_registry[
+                    result.result_data.object_id
+                ] = carg.value.enum_name
 
     return base64.b64encode(txer.serialize(False)).decode()
 

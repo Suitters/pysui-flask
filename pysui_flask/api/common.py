@@ -123,7 +123,7 @@ def client_for_transaction(active_address: str) -> tuple[SyncClient, Any]:
 
 def deser_transaction(client: SyncClient, txb_base64: str) -> SyncTransaction:
     """Construct a generic transaction builder."""
-    return SyncTransaction(client, deserialize_from=txb_base64)
+    return SyncTransaction(client=client, deserialize_from=txb_base64)
 
 
 def ready_transaction(client: SyncClient, ctx: TransactionIn) -> SyncTransaction:

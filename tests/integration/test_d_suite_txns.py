@@ -44,7 +44,7 @@ import pysui.sui.sui_crypto as crypto
 
 def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and inspecting a SuiTransaction."""
-    txer = SyncTransaction(sui_client)
+    txer = SyncTransaction(client=sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     inspect_dict = {
@@ -64,7 +64,7 @@ def test_pysui_tx_inspect(client: FlaskClient, sui_client: SyncClient):
 
 def test_template_owned(client: FlaskClient, sui_client: SyncClient):
     """Test creating a transaction Template."""
-    txer = SyncTransaction(sui_client)
+    txer = SyncTransaction(client=sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     template_dict = {
@@ -167,7 +167,7 @@ def test_template_owned_execute(client: FlaskClient, sui_client: SyncClient):
 
 def test_template_shared(client: FlaskClient, sui_client: SyncClient):
     """Test creating a transaction Template."""
-    txer = SyncTransaction(sui_client)
+    txer = SyncTransaction(client=sui_client)
     primary_coin = gas_not_in(sui_client)
     to_address = sui_client.config.active_address
     scoin = txer.split_coin(coin=primary_coin, amounts=[1000000000])
@@ -236,7 +236,7 @@ def test_template_shared_execute(
 
 def test_pysui_tx_verification(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and inspecting a SuiTransaction."""
-    txer = SyncTransaction(sui_client)
+    txer = SyncTransaction(client=sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     inspect_dict = {
@@ -285,7 +285,7 @@ def test_no_transactions(client: FlaskClient):
 
 def test_pysui_tx_execute(client: FlaskClient, sui_client: SyncClient):
     """Test deserializing and submitting a SuiTransaction."""
-    txer = SyncTransaction(sui_client)
+    txer = SyncTransaction(client=sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     txin = TransactionIn(
@@ -319,7 +319,7 @@ def test_transactions(client: FlaskClient):
 def test_pysui_tx_execute_deny_sig(client: FlaskClient, sui_client: SyncClient):
     """Test denying a signature request."""
     # Create the transaction
-    txer = SyncTransaction(sui_client)
+    txer = SyncTransaction(client=sui_client)
     scoin = txer.split_coin(coin=txer.gas, amounts=[1000000000])
     txer.transfer_objects(transfers=[scoin], recipient=sui_client.config.active_address)
     txin = TransactionIn(
@@ -413,7 +413,7 @@ def test_pysui_tx_with_msig(
     sender_account: PysuiAccount = account_data(client)
     sender_active_addy = SuiAddress(sender_account.active_address)
     # Create the transaction that puts gas in msig address
-    txer = SyncTransaction(sui_client, initial_sender=sender_active_addy)
+    txer = SyncTransaction(client=sui_client, initial_sender=sender_active_addy)
     scoin = txer.split_coin(coin=txer.gas, amounts=[10000000000])
     txer.transfer_objects(transfers=[scoin], recipient=msig_addy)
     txin = TransactionIn(
@@ -459,7 +459,7 @@ def test_pysui_tx_with_msig(
     mmem2_account = _mmember_data_by_index(1, msig_block, accounts["users"])
 
     # Create the transaction that puts some msig gas back to orig
-    txer = SyncTransaction(sui_client, initial_sender=msig_addy)
+    txer = SyncTransaction(client=sui_client, initial_sender=msig_addy)
     scoin = txer.split_coin(coin=txer.gas, amounts=[5000000000])
     txer.transfer_objects(transfers=[scoin], recipient=sender_active_addy)
 
@@ -514,7 +514,7 @@ def test_pysui_tx_sponsor(client: FlaskClient, sui_client: SyncClient, accounts:
     # Sync user
     sender_active_addy = SuiAddress(mmem1_account["active_address"])
     # Create the transaction that puts gas in msig address
-    txer = SyncTransaction(sui_client, initial_sender=sender_active_addy)
+    txer = SyncTransaction(client=sui_client, initial_sender=sender_active_addy)
     scoin = txer.split_coin(coin=txer.gas, amounts=[10000000000])
     txer.transfer_objects(transfers=[scoin], recipient=msig_addy)
     txin = TransactionIn(
@@ -558,7 +558,7 @@ def test_pysui_tx_msig_sponsor(
     sender_active_addy = SuiAddress(mmem3_account["active_address"])
     recipient_active_addy = SuiAddress(mmem4_account["active_address"])
     # Create the transaction that puts gas in msig address
-    txer = SyncTransaction(sui_client, initial_sender=sender_active_addy)
+    txer = SyncTransaction(client=sui_client, initial_sender=sender_active_addy)
     scoin = txer.split_coin(coin=txer.gas, amounts=[10000000000])
     txer.transfer_objects(transfers=[scoin], recipient=recipient_active_addy)
     txin = TransactionIn(
